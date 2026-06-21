@@ -1,42 +1,77 @@
 name: Publish packages
 
-# When a GitHub Release is published, build and publish @samad001z/norn-core and
-# @samad001z/norn-server to GitHub Packages. Uses the Actions GITHUB_TOKEN, which
-# is granted packages:write below.
+# On a published GitHub Release (or manual dispatch), publish
+# @samad001z/norn-core and @samad001z/norn-server to:
+#   - GitHub Packages (always; uses the Actions GITHUB_TOKEN)
+#   - the public npm registry (only if an NPM_TOKEN secret is set)
 on:
   release:
     types: [published]
   workflow_dispatch:
 
 jobs:
-  publish:
+  github-packages:
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           registry-url: https://npm.pkg.github.com
           scope: "@samad001z"
           cache: npm
-
       - run: npm ci
-
-      - name: Build core and server
+      - name: Build
         run: |
           npm run build -w @samad001z/norn-core
           npm run build -w @samad001z/norn-server
-
-      - name: Publish @samad001z/norn-core
-        run: npm publish -w @samad001z/norn-core
+      # already-published versions 409; don't fail re-runs
+      - run: npm publish -w @samad001z/norn-core
+        continue-on-error: true
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - run: npm publish -w @samad001z/norn-server
+        continue-on-error: true
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Publish @samad001z/norn-server
-        run: npm publish -w @samad001z/norn-server
+  npm:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require NPM_TOKEN
+        id: gate
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          if [ -n "$NPM_TOKEN" ]; then
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+            echo "No NPM_TOKEN secret set; skipping public npm publish."
+          fi
+      - if: steps.gate.outputs.ok == 'true'
+        uses: actions/checkout@v4
+      - if: steps.gate.outputs.ok == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+          cache: npm
+      - if: steps.gate.outputs.ok == 'true'
+        run: npm ci
+      - if: steps.gate.outputs.ok == 'true'
+        name: Build
+        run: |
+          npm run build -w @samad001z/norn-core
+          npm run build -w @samad001z/norn-server
+      - if: steps.gate.outputs.ok == 'true'
+        run: npm publish -w @samad001z/norn-core --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - if: steps.gate.outputs.ok == 'true'
+        run: npm publish -w @samad001z/norn-server --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
