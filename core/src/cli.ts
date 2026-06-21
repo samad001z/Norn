@@ -9,7 +9,7 @@
  *
  * The store lives at $NORN_DB_PATH (default ./norn.db).
  */
-import { HashEmbedder, SqliteStorage, type Memory } from "./index.js";
+import { HashEmbedder, SqliteStorage, defaultDbPath, type Memory } from "./index.js";
 
 type Flags = Record<string, string>;
 
@@ -51,7 +51,7 @@ async function main(): Promise<void> {
   const { positionals, flags } = parse(rest);
 
   const storage = new SqliteStorage({
-    path: process.env.NORN_DB_PATH ?? "norn.db",
+    path: defaultDbPath(),
     embedder: new HashEmbedder(),
   });
 

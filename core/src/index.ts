@@ -8,6 +8,7 @@ export type {
 export { type Embedder, HashEmbedder } from "./embeddings.js";
 export type { Storage } from "./storage.js";
 export { SqliteStorage, type SqliteStorageOptions } from "./sqlite-storage.js";
+export { defaultDbPath } from "./paths.js";
 export {
   estimateTokens,
   recencyScore,

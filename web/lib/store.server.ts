@@ -2,7 +2,12 @@ import "server-only";
 
 import path from "node:path";
 import { promises as fs } from "node:fs";
-import { HashEmbedder, SqliteStorage, type Memory as CoreMemory } from "@norn/core";
+import {
+  HashEmbedder,
+  SqliteStorage,
+  defaultDbPath,
+  type Memory as CoreMemory,
+} from "@norn/core";
 
 /** The memory shape the dashboard UI consumes. */
 export interface UiMemory {
@@ -35,7 +40,7 @@ let seedChecked = false;
 function getStore(): SqliteStorage {
   if (!store) {
     store = new SqliteStorage({
-      path: process.env.NORN_DB_PATH ?? path.join(process.cwd(), "norn.db"),
+      path: defaultDbPath(),
       embedder: new HashEmbedder(),
       now: () => new Date(clock.ms),
     });

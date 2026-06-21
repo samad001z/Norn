@@ -1,4 +1,6 @@
 import { randomUUID } from "node:crypto";
+import { mkdirSync } from "node:fs";
+import { dirname } from "node:path";
 import Database from "better-sqlite3";
 import * as sqliteVec from "sqlite-vec";
 import type { Embedder } from "./embeddings.js";
@@ -54,9 +56,16 @@ export class SqliteStorage implements Storage {
   constructor(opts: SqliteStorageOptions) {
     this.embedder = opts.embedder;
     this.now = opts.now ?? (() => new Date());
-    this.db = new Database(opts.path ?? "norn.db");
+    const dbPath = opts.path ?? "norn.db";
+    if (dbPath !== ":memory:") {
+      mkdirSync(dirname(dbPath), { recursive: true });
+    }
+    this.db = new Database(dbPath);
     this.db.pragma("journal_mode = WAL");
     this.db.pragma("foreign_keys = ON");
+    // The dashboard and MCP server may hold this file open at once; wait for a
+    // concurrent writer instead of throwing SQLITE_BUSY.
+    this.db.pragma("busy_timeout = 5000");
     sqliteVec.load(this.db);
     this.migrate();
   }
