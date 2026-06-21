@@ -179,7 +179,7 @@ export function BelowFold() {
             </p>
             <div className="mt-3 overflow-x-auto rounded-xl border border-silt bg-tide p-5">
               <code className="font-mono text-sm text-mist">
-                claude mcp add norn -- node ./server/dist/index.js
+                claude mcp add norn -- npx -y @samad001z/norn-server
               </code>
             </div>
             <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -192,7 +192,7 @@ export function BelowFold() {
                 Get started on GitHub →
               </a>
               <span className="text-sm text-fathom">
-                Clone, build, and connect. Full steps in the README.
+                No clone needed. Full docs on GitHub.
               </span>
             </div>
           </Reveal>

@@ -16,45 +16,42 @@ anything you do not want.
 
 ## Quickstart
 
-Requires Node 20+.
+Requires Node 20+. Add Norn to Claude Code in one line, no clone:
 
 ```bash
-git clone https://github.com/samad001z/Norn.git
-cd Norn
-npm install
-npm run build -w @samad001z/norn-core && npm run build -w @samad001z/norn-server
+claude mcp add norn -- npx -y @samad001z/norn-server
 ```
 
-Add it to Claude Code (run from the repo root):
-
-```bash
-claude mcp add norn -- node "$(pwd)/server/dist/index.js"
-```
-
-For Cursor, Claude Desktop, or any MCP client, point the standard config at the same
-entry with an absolute path:
+For Cursor, Claude Desktop, or any MCP client, use the standard config:
 
 ```json
 {
   "mcpServers": {
     "norn": {
-      "command": "node",
-      "args": ["/absolute/path/to/Norn/server/dist/index.js"]
+      "command": "npx",
+      "args": ["-y", "@samad001z/norn-server"]
     }
   }
 }
-```
-
-Once Norn is published to npm, you can skip the clone and run it with npx:
-
-```bash
-claude mcp add norn -- npx -y @samad001z/norn-server
 ```
 
 Restart your agent. Norn registers four tools: `remember`, `recall`, `forget`, `list`.
 
 > The first `remember` or `recall` downloads a local embedding model
 > (all-MiniLM-L6-v2, ~25 MB) once, then runs fully offline.
+
+<details>
+<summary>Or run from source</summary>
+
+```bash
+git clone https://github.com/samad001z/Norn.git
+cd Norn
+npm install
+npm run build -w @samad001z/norn-core && npm run build -w @samad001z/norn-server
+claude mcp add norn -- node "$(pwd)/server/dist/index.js"
+```
+
+</details>
 
 ## See it work
 
