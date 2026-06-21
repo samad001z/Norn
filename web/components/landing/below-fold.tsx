@@ -171,6 +171,32 @@ export function BelowFold() {
             </li>
           ))}
         </ol>
+
+        <Row>
+          <Reveal y={16} className="mt-8">
+            <p className="font-mono text-xs uppercase tracking-[0.18em] text-fathom">
+              Connect it to Claude Code
+            </p>
+            <div className="mt-3 overflow-x-auto rounded-xl border border-silt bg-tide p-5">
+              <code className="font-mono text-sm text-mist">
+                claude mcp add norn -- node ./server/dist/index.js
+              </code>
+            </div>
+            <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
+              <a
+                href="https://github.com/samad001z/Norn"
+                target="_blank"
+                rel="noreferrer"
+                className="grid h-12 place-items-center rounded-lg bg-candle px-6 font-medium text-well transition-colors outline-none hover:bg-ember focus-visible:ring-2 focus-visible:ring-candle/60 sm:inline-flex"
+              >
+                Get started on GitHub →
+              </a>
+              <span className="text-sm text-fathom">
+                Clone, build, and connect. Full steps in the README.
+              </span>
+            </div>
+          </Reveal>
+        </Row>
       </section>
 
       {/* CLOSER + CTA */}

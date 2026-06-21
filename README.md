@@ -2,6 +2,8 @@
 
 Persistent, visible memory for AI coding agents.
 
+**[Live site](https://norn-web-three.vercel.app)** · [Releases](https://github.com/samad001z/Norn/releases) · [Quickstart](#quickstart)
+
 <!-- DEMO GIF: record a short screen capture (agent remembers, then recalls in a
 new session) and save it as docs/demo.gif, then replace this comment with:
 ![Norn demo](docs/demo.gif) -->
