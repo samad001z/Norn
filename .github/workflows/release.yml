@@ -1,0 +1,42 @@
+name: Publish packages
+
+# When a GitHub Release is published, build and publish @samad001z/norn-core and
+# @samad001z/norn-server to GitHub Packages. Uses the Actions GITHUB_TOKEN, which
+# is granted packages:write below.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://npm.pkg.github.com
+          scope: "@samad001z"
+          cache: npm
+
+      - run: npm ci
+
+      - name: Build core and server
+        run: |
+          npm run build -w @samad001z/norn-core
+          npm run build -w @samad001z/norn-server
+
+      - name: Publish @samad001z/norn-core
+        run: npm publish -w @samad001z/norn-core
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish @samad001z/norn-server
+        run: npm publish -w @samad001z/norn-server
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
