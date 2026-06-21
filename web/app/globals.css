@@ -1,0 +1,111 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+  Norn — "the well of memory."
+  Dark-locked. Cool ink base, one warm Candle accent (light on dark water).
+  Palette: Well / Tide / Silt / Mist / Fathom / Candle / Ember. See CLAUDE.md.
+*/
+
+@theme inline {
+  /* Norn palette — direct utilities: bg-well, text-mist, text-candle, border-silt … */
+  --color-well: #0a0e13;
+  --color-tide: #10161e;
+  --color-silt: #1b2430;
+  --color-mist: #d6dee7;
+  --color-fathom: #73808f;
+  --color-candle: #e9b87a;
+  --color-ember: #c9924e;
+
+  /* shadcn semantic tokens, resolved from :root below */
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  /* Type roles */
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, "Cascadia Code", monospace;
+  --font-display: var(--font-newsreader), Georgia, "Times New Roman", serif;
+}
+
+:root {
+  color-scheme: dark;
+  --radius: 0.5rem;
+
+  --background: #0a0e13; /* Well */
+  --foreground: #d6dee7; /* Mist */
+  --card: #10161e; /* Tide */
+  --card-foreground: #d6dee7;
+  --popover: #131a23; /* Tide, slightly raised */
+  --popover-foreground: #d6dee7;
+  --primary: #e9b87a; /* Candle */
+  --primary-foreground: #0a0e13; /* dark ink on candlelight */
+  --secondary: #1b2430; /* Silt */
+  --secondary-foreground: #d6dee7;
+  --muted: #141b25;
+  --muted-foreground: #73808f; /* Fathom */
+  --accent: #1b2430; /* Silt — hover surfaces */
+  --accent-foreground: #d6dee7;
+  --destructive: #c76b61; /* muted rosewood, never neon */
+  --border: #1b2430; /* Silt */
+  --input: #1b2430;
+  --ring: #e9b87a; /* Candle focus */
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground font-sans;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+}
+
+/* Lenis smooth scroll */
+html.lenis,
+html.lenis body {
+  height: auto;
+}
+.lenis.lenis-smooth {
+  scroll-behavior: auto !important;
+}
+.lenis.lenis-smooth [data-lenis-prevent] {
+  overscroll-behavior: contain;
+}
+.lenis.lenis-stopped {
+  overflow: hidden;
+}
+
+/* Quality floor: honor reduced motion. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

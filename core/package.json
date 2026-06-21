@@ -1,0 +1,36 @@
+{
+  "name": "@norn/core",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Norn memory store: local SQLite + sqlite-vec, with a swappable embedding interface.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "bin": {
+    "norn": "./dist/cli.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "node --import tsx --test \"test/**/*.test.ts\"",
+    "cli": "tsx src/cli.ts"
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.11.1",
+    "sqlite-vec": "^0.1.6"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.12",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3"
+  }
+}

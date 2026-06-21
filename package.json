@@ -1,0 +1,23 @@
+{
+  "name": "norn",
+  "version": "0.0.0",
+  "private": true,
+  "description": "A local-first memory layer for AI coding tools — see, search, edit, and forget every memory.",
+  "type": "module",
+  "workspaces": [
+    "core",
+    "server",
+    "web"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "npm run build -w @norn/core && npm run build -w @norn/server && npm run build -w @norn/web",
+    "build:core": "npm run build -w @norn/core",
+    "typecheck": "npm run build:core && npm run typecheck --workspaces --if-present",
+    "dev:server": "npm run dev -w @norn/server",
+    "dev:web": "npm run dev -w @norn/web",
+    "clean": "node -e \"for (const p of ['core','server','web']) require('node:fs').rmSync(p+'/dist',{recursive:true,force:true})\""
+  }
+}

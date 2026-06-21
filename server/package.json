@@ -1,0 +1,25 @@
+{
+  "name": "@norn/server",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Norn MCP server: remember, recall, forget, list — over stdio.",
+  "type": "module",
+  "bin": {
+    "norn-server": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsx watch src/index.ts",
+    "start": "node dist/index.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.13.1",
+    "@norn/core": "*",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3"
+  }
+}
