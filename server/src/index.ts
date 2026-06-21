@@ -3,7 +3,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import {
-  HashEmbedder,
+  MiniLMEmbedder,
   SqliteStorage,
   defaultDbPath,
   type Memory,
@@ -13,12 +13,12 @@ import {
 
 const storage: Storage = new SqliteStorage({
   path: defaultDbPath(),
-  embedder: new HashEmbedder(),
+  embedder: new MiniLMEmbedder(),
 });
 
 const server = new McpServer({
   name: "norn",
-  version: "0.0.0",
+  version: "0.1.0",
 });
 
 const projectArg = z

@@ -3,7 +3,7 @@ import "server-only";
 import path from "node:path";
 import { promises as fs } from "node:fs";
 import {
-  HashEmbedder,
+  MiniLMEmbedder,
   SqliteStorage,
   defaultDbPath,
   type Memory as CoreMemory,
@@ -41,7 +41,7 @@ function getStore(): SqliteStorage {
   if (!store) {
     store = new SqliteStorage({
       path: defaultDbPath(),
-      embedder: new HashEmbedder(),
+      embedder: new MiniLMEmbedder(),
       now: () => new Date(clock.ms),
     });
   }

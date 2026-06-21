@@ -6,6 +6,7 @@ export type {
   ListOptions,
 } from "./types.js";
 export { type Embedder, HashEmbedder } from "./embeddings.js";
+export { MiniLMEmbedder, type MiniLMOptions } from "./minilm-embedder.js";
 export type { Storage } from "./storage.js";
 export { SqliteStorage, type SqliteStorageOptions } from "./sqlite-storage.js";
 export { defaultDbPath } from "./paths.js";

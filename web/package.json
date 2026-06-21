@@ -1,6 +1,6 @@
 {
   "name": "@norn/web",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
   "description": "Norn dashboard: see, search, edit, and forget every memory.",
   "scripts": {
