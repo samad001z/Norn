@@ -1,111 +1,148 @@
 # Norn
 
-A local-first memory layer for AI coding tools. An MCP server that remembers
-context across sessions and projects, plus a dashboard to **see, search, edit,
-and forget** every memory.
+Persistent, visible memory for AI coding agents.
 
-The differentiator is transparency + control + craft — not the retrieval
-algorithm. Memories are yours: stored locally, fully visible, always editable.
+<!-- DEMO GIF HERE -->
 
-## Monorepo layout
+Your AI forgets you every session. Norn is a local MCP server that remembers your
+decisions, preferences, and project context across every session and project, for
+Claude Code, Cursor, and any MCP client. Unlike most memory tools it is fully local
+and fully inspectable: a dashboard lets you see exactly what it stored and forget
+anything you do not want.
 
+## Quickstart
+
+Requires Node 20+.
+
+```bash
+git clone https://github.com/samad001z/Norn.git
+cd Norn
+npm install
+npm run build -w @norn/core && npm run build -w @norn/server
 ```
-norn/
-├─ core/      @norn/core   — Storage interface + SqliteStorage (SQLite + sqlite-vec),
-│                            swappable Embedder. Shared by server and web.
-├─ server/    @norn/server — MCP server over stdio: remember · recall · forget · list
-├─ web/       @norn/web    — Next.js App Router + Tailwind + shadcn/ui (UI not built yet)
-├─ package.json            — npm workspaces, root scripts
-├─ tsconfig.base.json
-└─ CLAUDE.md               — project context, scope, design direction
+
+Add it to Claude Code (run from the repo root):
+
+```bash
+claude mcp add norn -- node "$(pwd)/server/dist/index.js"
 ```
 
-### The Storage seam
+For Cursor, Claude Desktop, or any MCP client, point the standard config at the same
+entry with an absolute path:
 
-Both `server` and `web` talk to memory only through the `Storage` interface in
-`@norn/core`. Today the implementation is `SqliteStorage` (local SQLite +
-sqlite-vec) with a placeholder `HashEmbedder`. Swapping the store (e.g. remote
-pgvector) or the embedding model means writing a new implementation behind the
-same interface — callers don't change.
-
-```ts
-interface Storage {
-  remember(input: NewMemory): Promise<Memory>;            // content, tags?, project?
-  recall(query: string, opts?: RecallOptions): Promise<RecallResult[]>; // limit?
-  forget(id: string): Promise<boolean>;
-  list(opts?: ListOptions): Promise<Memory[]>;            // project?
-  close(): Promise<void>;
+```json
+{
+  "mcpServers": {
+    "norn": {
+      "command": "node",
+      "args": ["/absolute/path/to/Norn/server/dist/index.js"]
+    }
+  }
 }
 ```
 
-## Getting started
+Once Norn is published to npm, you can skip the clone and run it with npx:
 
-Requires Node 20+ (see `.nvmrc` → 24).
+```bash
+claude mcp add norn -- npx -y @norn/server
+```
+
+Restart your agent. Norn registers four tools: `remember`, `recall`, `forget`, `list`.
+
+> The first `remember` or `recall` downloads a local embedding model
+> (all-MiniLM-L6-v2, ~25 MB) once, then runs fully offline.
+
+## See it work
+
+Memory survives across sessions, and recall is semantic: it matches meaning, not
+keywords.
+
+**Session 1**
+
+> You: Remember that we deploy to production from the main branch on Vercel.
+>
+> Claude calls `remember("deploy to production from the main branch on Vercel", project: "acme")`
+
+**Session 2, the next day, in a fresh context window**
+
+> You: How do we ship to prod?
+>
+> Claude calls `recall("how do we ship to prod")`
+>
+> Norn returns "Deploy to production from the main branch on Vercel." even though the
+> query shares no keywords with the stored note.
+
+## How it works
+
+Three local pieces share one local database:
+
+```
+Claude Code / Cursor  ──MCP (stdio)──►  Norn MCP server  ┐
+                                                          ├──►  ~/.norn/norn.db
+        Dashboard (Next.js)  ────────────────────────────┘     (SQLite + sqlite-vec)
+```
+
+- **MCP server** (`/server`): exposes `remember`, `recall`, `forget`, `list` over stdio.
+- **Store** (`/core`): SQLite + sqlite-vec, with embeddings from a local MiniLM model
+  (no API key). `recall` blends semantic similarity with recency and trims results to a
+  token budget; `remember` dedupes near-identical notes.
+- **Dashboard** (`/web`): a Next.js app to browse and manage everything.
+
+All three default to the same file, `~/.norn/norn.db` (override with `NORN_DB_PATH`), so
+a memory written by your agent appears in the dashboard, and a memory you forget in the
+dashboard is gone for the agent too.
+
+## Features
+
+- **Remembers across sessions and projects.** Stop re-pasting CLAUDE.md by hand.
+- **See everything it knows.** No black box: every memory is visible.
+- **Forget anything, with undo.** Full control over what it keeps.
+- **Lives in your tools over MCP.** Claude Code, Cursor, and any MCP client.
+- **Local-first.** Your context, the embedding model, and the database all stay on your
+  machine.
+
+## Privacy
+
+Local by default. The store is a SQLite file on your disk, the embedding model runs on
+your machine, and nothing leaves it: no account, no API key, no telemetry. Delete
+`~/.norn/norn.db` and the memory is gone.
+
+## Manage your memories
+
+The dashboard lets you browse by project, search, and forget any memory (with undo).
+
+```bash
+npm run dev:web
+# open http://localhost:3000/app
+```
+
+<!-- DASHBOARD SCREENSHOT HERE -->
+
+You can also inspect the store from the command line:
+
+```bash
+npm run cli -w @norn/core -- list
+npm run cli -w @norn/core -- recall "how do we deploy"
+```
+
+## Roadmap
+
+- Swappable embedding backends (Ollama, OpenAI-compatible) behind the existing `Embedder`
+  interface.
+- Create and edit memories from the dashboard, not just browse and forget.
+- Optional end-to-end encrypted sync, off by default.
+- More editor and MCP-client integrations.
+
+## Contributing
+
+Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md). The short version:
 
 ```bash
 npm install
-npm run build          # builds core, then server, then web
+npm run build
+npm test -w @norn/core
 ```
 
-### MCP server
+## License
 
-Exposes four tools over stdio:
-
-| Tool       | Arguments                          |
-| ---------- | ---------------------------------- |
-| `remember` | `content`, `tags?`, `project?`     |
-| `recall`   | `query`, `limit?`                  |
-| `forget`   | `id`                               |
-| `list`     | `project?`                         |
-
-```bash
-npm run dev:server     # tsx watch over stdio
-# or, after building:
-node server/dist/index.js
-```
-
-The store path defaults to `norn.db`; override with `NORN_DB_PATH`.
-
-`recall` is semantic relevance blended with recency, trimmed to a token budget;
-`remember` dedupes near-identical content within a project (merging tags and
-bumping the timestamp instead of inserting a duplicate).
-
-### CLI (test the engine without the UI)
-
-```bash
-npm run cli -w @norn/core -- remember "deploy from main on vercel" --tags ops --project acme
-npm run cli -w @norn/core -- recall "how do we ship" --limit 5 --budget 800
-npm run cli -w @norn/core -- list --project acme
-npm run cli -w @norn/core -- forget <id>
-```
-
-After building, the same is available as the `norn` bin.
-
-### Tests
-
-```bash
-npm test -w @norn/core   # node:test via tsx; covers the Storage interface + ranking
-```
-
-### Web dashboard
-
-```bash
-npm run dev:web        # http://localhost:3000
-```
-
-shadcn/ui is wired (`components.json`, `lib/utils.ts`). Add components with
-`npx shadcn@latest add <name>` from `web/`.
-
-## v1 scope
-
-- **MCP tools:** `remember()`, `recall()`, `forget()`, `list()`
-- **Dashboard:** list, full-text + semantic search, inline edit, delete,
-  per-project grouping
-- **Store:** local SQLite + sqlite-vec (zero infra, private by default)
-
-### Status
-
-Skeleton. `core` implements all four operations against SQLite + sqlite-vec
-using a **placeholder `HashEmbedder`** (deterministic, not semantic — swap
-before v1 ships). The `web` app is a bare Next.js + shadcn skeleton; the
-dashboard UI is intentionally not built yet.
+MIT. See [LICENSE](LICENSE).

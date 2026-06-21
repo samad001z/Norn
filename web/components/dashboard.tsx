@@ -13,7 +13,13 @@ import { cn } from "@/lib/utils";
 
 const shorten = (s: string) => (s.length > 48 ? `${s.slice(0, 48)}…` : s);
 
-export function Dashboard({ initialMemories }: { initialMemories: Memory[] }) {
+export function Dashboard({
+  initialMemories,
+  hosted = false,
+}: {
+  initialMemories: Memory[];
+  hosted?: boolean;
+}) {
   const [memories, setMemories] = React.useState<Memory[]>(initialMemories);
   const [query, setQuery] = React.useState("");
   const [active, setActive] = React.useState("all");
@@ -118,6 +124,25 @@ export function Dashboard({ initialMemories }: { initialMemories: Memory[] }) {
           <span className="font-mono text-xs text-fathom">local-first memory</span>
         </div>
       </header>
+
+      {hosted && (
+        <div className="border-b border-silt bg-tide/60">
+          <div className="mx-auto flex max-w-6xl flex-col gap-1 px-6 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-fathom">
+              You are viewing a hosted preview. The dashboard runs against your local
+              memory store.
+            </p>
+            <a
+              href="https://github.com/samad001z/Norn"
+              target="_blank"
+              rel="noreferrer"
+              className="shrink-0 font-medium text-candle underline-offset-4 hover:underline"
+            >
+              Get Norn →
+            </a>
+          </div>
+        </div>
+      )}
 
       <div className="mx-auto flex max-w-6xl gap-10 px-6 py-10">
         <aside className="hidden w-52 shrink-0 md:block">

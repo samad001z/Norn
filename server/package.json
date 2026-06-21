@@ -1,12 +1,41 @@
 {
   "name": "@norn/server",
   "version": "0.1.0",
-  "private": true,
-  "description": "Norn MCP server: remember, recall, forget, list — over stdio.",
+  "description": "Norn MCP server with remember, recall, forget, and list tools over stdio.",
+  "license": "MIT",
+  "author": "samad001z",
+  "homepage": "https://github.com/samad001z/Norn#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/samad001z/Norn.git",
+    "directory": "server"
+  },
+  "bugs": {
+    "url": "https://github.com/samad001z/Norn/issues"
+  },
+  "keywords": [
+    "mcp",
+    "mcp-server",
+    "memory",
+    "ai-memory",
+    "claude",
+    "cursor",
+    "model-context-protocol",
+    "local-first"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=20"
+  },
   "type": "module",
   "bin": {
     "norn-server": "./dist/index.js"
   },
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "dev": "tsx watch src/index.ts",
@@ -15,7 +44,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.13.1",
-    "@norn/core": "*",
+    "@norn/core": "^0.1.0",
     "zod": "^3.24.1"
   },
   "devDependencies": {

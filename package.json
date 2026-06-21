@@ -4,6 +4,15 @@
   "private": true,
   "description": "A local-first memory layer for AI coding tools — see, search, edit, and forget every memory.",
   "type": "module",
+  "homepage": "https://github.com/samad001z/Norn#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/samad001z/Norn.git"
+  },
+  "bugs": {
+    "url": "https://github.com/samad001z/Norn/issues"
+  },
+  "license": "MIT",
   "workspaces": [
     "core",
     "server",

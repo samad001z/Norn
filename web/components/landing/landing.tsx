@@ -96,7 +96,9 @@ export function Landing() {
               <a href="#how" className="hidden text-fathom transition-colors hover:text-mist sm:inline">
                 How it works
               </a>
-              <a href="https://github.com" className="text-fathom transition-colors hover:text-mist">
+              <a href="https://github.com/samad001z/Norn"
+                target="_blank"
+                rel="noreferrer" className="text-fathom transition-colors hover:text-mist">
                 GitHub
               </a>
               <a
@@ -170,7 +172,9 @@ export function Landing() {
             <span>Norn · local-first memory</span>
             <div className="flex gap-5">
               <a href="#how" className="transition-colors hover:text-mist">How it works</a>
-              <a href="https://github.com" className="transition-colors hover:text-mist">GitHub</a>
+              <a href="https://github.com/samad001z/Norn"
+                target="_blank"
+                rel="noreferrer" className="transition-colors hover:text-mist">GitHub</a>
             </div>
           </div>
         </footer>
