@@ -2,7 +2,9 @@
 
 Persistent, visible memory for AI coding agents.
 
-<!-- DEMO GIF HERE -->
+<!-- DEMO GIF: record a short screen capture (agent remembers, then recalls in a
+new session) and save it as docs/demo.gif, then replace this comment with:
+![Norn demo](docs/demo.gif) -->
 
 Your AI forgets you every session. Norn is a local MCP server that remembers your
 decisions, preferences, and project context across every session and project, for
@@ -18,7 +20,7 @@ Requires Node 20+.
 git clone https://github.com/samad001z/Norn.git
 cd Norn
 npm install
-npm run build -w @norn/core && npm run build -w @norn/server
+npm run build -w @samad001z/norn-core && npm run build -w @samad001z/norn-server
 ```
 
 Add it to Claude Code (run from the repo root):
@@ -44,7 +46,7 @@ entry with an absolute path:
 Once Norn is published to npm, you can skip the clone and run it with npx:
 
 ```bash
-claude mcp add norn -- npx -y @norn/server
+claude mcp add norn -- npx -y @samad001z/norn-server
 ```
 
 Restart your agent. Norn registers four tools: `remember`, `recall`, `forget`, `list`.
@@ -116,13 +118,13 @@ npm run dev:web
 # open http://localhost:3000/app
 ```
 
-<!-- DASHBOARD SCREENSHOT HERE -->
+![The Norn dashboard: browse by project, search, and forget your memories](web/public/app-screenshot.png)
 
 You can also inspect the store from the command line:
 
 ```bash
-npm run cli -w @norn/core -- list
-npm run cli -w @norn/core -- recall "how do we deploy"
+npm run cli -w @samad001z/norn-core -- list
+npm run cli -w @samad001z/norn-core -- recall "how do we deploy"
 ```
 
 ## Roadmap
@@ -140,7 +142,7 @@ Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md). The short ver
 ```bash
 npm install
 npm run build
-npm test -w @norn/core
+npm test -w @samad001z/norn-core
 ```
 
 ## License

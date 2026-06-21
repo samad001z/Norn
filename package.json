@@ -22,11 +22,11 @@
     "node": ">=20"
   },
   "scripts": {
-    "build": "npm run build -w @norn/core && npm run build -w @norn/server && npm run build -w @norn/web",
-    "build:core": "npm run build -w @norn/core",
+    "build": "npm run build -w @samad001z/norn-core && npm run build -w @samad001z/norn-server && npm run build -w @samad001z/norn-web",
+    "build:core": "npm run build -w @samad001z/norn-core",
     "typecheck": "npm run build:core && npm run typecheck --workspaces --if-present",
-    "dev:server": "npm run dev -w @norn/server",
-    "dev:web": "npm run dev -w @norn/web",
+    "dev:server": "npm run dev -w @samad001z/norn-server",
+    "dev:web": "npm run dev -w @samad001z/norn-web",
     "clean": "node -e \"for (const p of ['core','server','web']) require('node:fs').rmSync(p+'/dist',{recursive:true,force:true})\""
   }
 }

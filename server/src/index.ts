@@ -9,7 +9,7 @@ import {
   type Memory,
   type RecallResult,
   type Storage,
-} from "@norn/core";
+} from "@samad001z/norn-core";
 
 const storage: Storage = new SqliteStorage({
   path: defaultDbPath(),

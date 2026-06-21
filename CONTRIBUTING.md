@@ -18,16 +18,16 @@ npm run build
 
 Norn is an npm-workspaces monorepo:
 
-- `core/` (`@norn/core`) — the storage engine: SQLite + sqlite-vec behind a `Storage`
+- `core/` (`@samad001z/norn-core`) — the storage engine: SQLite + sqlite-vec behind a `Storage`
   interface, with a swappable `Embedder`. Has unit tests.
-- `server/` (`@norn/server`) — the MCP server (`remember`, `recall`, `forget`, `list`).
-- `web/` (`@norn/web`) — the Next.js dashboard and marketing landing.
+- `server/` (`@samad001z/norn-server`) — the MCP server (`remember`, `recall`, `forget`, `list`).
+- `web/` (`@samad001z/norn-web`) — the Next.js dashboard and marketing landing.
 
 ## Workflow
 
 ```bash
 npm run build              # builds core, then server, then web
-npm test -w @norn/core     # unit tests (node:test via tsx)
+npm test -w @samad001z/norn-core     # unit tests (node:test via tsx)
 npm run typecheck          # type-check every package
 ```
 
@@ -39,7 +39,7 @@ npm run typecheck          # type-check every package
 ## Before opening a pull request
 
 - `npm run build` passes.
-- `npm test -w @norn/core` passes.
+- `npm test -w @samad001z/norn-core` passes.
 - Describe what changed and why.
 
 ## License

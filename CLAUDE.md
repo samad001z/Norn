@@ -37,9 +37,9 @@ Teams, multi-user, auth beyond local, billing, voice, 10 framework integrations.
 - Update this file when decisions change. Small commits. Ask before adding scope.
 
 ## Repo layout (decided)
-- `/core`   — `@norn/core`: `Storage` interface + `SqliteStorage` (SQLite + sqlite-vec),
+- `/core`   — `@samad001z/norn-core`: `Storage` interface + `SqliteStorage` (SQLite + sqlite-vec),
               swappable `Embedder` interface. Shared by server and web.
-- `/server` — `@norn/server`: MCP server over stdio. Tools: `remember(content, tags?,
+- `/server` — `@samad001z/norn-server`: MCP server over stdio. Tools: `remember(content, tags?,
               project?)`, `recall(query, limit?)`, `forget(id)`, `list(project?)`.
-- `/web`    — `@norn/web`: Next.js App Router + Tailwind + shadcn/ui. UI not built yet.
+- `/web`    — `@samad001z/norn-web`: Next.js App Router + Tailwind + shadcn/ui. UI not built yet.
 - npm workspaces. Build order: core → server → web (server/web consume core's `dist`).

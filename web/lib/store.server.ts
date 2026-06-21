@@ -7,7 +7,7 @@ import {
   SqliteStorage,
   defaultDbPath,
   type Memory as CoreMemory,
-} from "@norn/core";
+} from "@samad001z/norn-core";
 
 /** The memory shape the dashboard UI consumes. */
 export interface UiMemory {
