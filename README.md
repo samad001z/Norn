@@ -4,9 +4,7 @@ Persistent, visible memory for AI coding agents.
 
 **[Live site](https://norn-web-three.vercel.app)** · [Releases](https://github.com/samad001z/Norn/releases) · [Quickstart](#quickstart)
 
-<!-- DEMO GIF: record a short screen capture (agent remembers, then recalls in a
-new session) and save it as docs/demo.gif, then replace this comment with:
-![Norn demo](docs/demo.gif) -->
+![The Norn dashboard: browse memories by project, search them live, and forget any one with a moment to undo](assets/demo.gif)
 
 Your AI forgets you every session. Norn is a local MCP server that remembers your
 decisions, preferences, and project context across every session and project, for
@@ -111,15 +109,36 @@ your machine, and nothing leaves it: no account, no API key, no telemetry. Delet
 ## Manage your memories
 
 The dashboard lets you browse by project, search, and forget any memory (with undo).
+It runs from a clone of this repo (it is not part of the `npx` server package), and it
+reads the same local store your agent writes to — `~/.norn/norn.db` — so whatever Norn
+remembered shows up here.
+
+Run these four commands from a fresh terminal:
 
 ```bash
-npm run dev:web
-# open http://localhost:3000/app
+git clone https://github.com/samad001z/Norn.git
+cd Norn
+npm install          # install dependencies
+npm run build:core   # build the store package the dashboard reads through (required)
+npm run dev:web      # start the dashboard
+```
+
+Then open **http://localhost:3000/app**.
+
+> Skipping `npm run build:core` is the usual reason the dashboard opens empty: the web
+> app imports the compiled store from `@samad001z/norn-core`, so that package has to be
+> built once first. After that, `npm run dev:web` is all you need to reopen it.
+
+To point the dashboard at a store in a non-default location, set `NORN_DB_PATH` to the
+same path your agent uses before running `dev:web` (otherwise the default is fine):
+
+```bash
+NORN_DB_PATH=/path/to/norn.db npm run dev:web
 ```
 
 ![The Norn dashboard: browse by project, search, and forget your memories](web/public/app-screenshot.png)
 
-You can also inspect the store from the command line:
+Prefer the terminal? Inspect the same store without the dashboard:
 
 ```bash
 npm run cli -w @samad001z/norn-core -- list

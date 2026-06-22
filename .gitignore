@@ -19,6 +19,9 @@ norn.db*
 # runtime data sinks (early-access signups, etc.)
 .data/
 
+# demo recording scratch (playwright video, frames, palette)
+.demo-tools/
+
 # env / secrets
 .env
 .env.*
