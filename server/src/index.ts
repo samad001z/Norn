@@ -5,15 +5,22 @@ import { z } from "zod";
 import {
   MiniLMEmbedder,
   SqliteStorage,
-  defaultDbPath,
+  resolveStore,
   type Memory,
   type RecallResult,
   type Storage,
 } from "@samad001z/norn-core";
 
+// Resolve the store for the directory the client launched us in: a project-local
+// .norn store, an explicit NORN_DB_PATH, or the global store. `scope` is stamped
+// on writes; `filterScope` is applied to recall/list so this project only ever
+// surfaces its own (and global) memories.
+const { dbPath, scope, isolate } = resolveStore();
+const filterScope = isolate ? scope : undefined;
 const storage: Storage = new SqliteStorage({
-  path: defaultDbPath(),
+  path: dbPath,
   embedder: new MiniLMEmbedder(),
+  scope,
 });
 
 const server = new McpServer({
@@ -69,7 +76,11 @@ server.registerTool(
     },
   },
   async ({ query, limit, tokenBudget }) => {
-    const results: RecallResult[] = await storage.recall(query, { limit, tokenBudget });
+    const results: RecallResult[] = await storage.recall(query, {
+      limit,
+      tokenBudget,
+      scope: filterScope,
+    });
     if (results.length === 0) {
       return { content: [{ type: "text", text: "No memories matched." }] };
     }
@@ -107,7 +118,7 @@ server.registerTool(
     },
   },
   async ({ project }) => {
-    const memories = await storage.list({ project });
+    const memories = await storage.list({ project, scope: filterScope });
     if (memories.length === 0) {
       return { content: [{ type: "text", text: "Nothing remembered yet." }] };
     }
@@ -119,7 +130,7 @@ async function main(): Promise<void> {
   const transport = new StdioServerTransport();
   await server.connect(transport);
   // stdio servers communicate over stdout/stdin; log to stderr only.
-  process.stderr.write("norn mcp server ready\n");
+  process.stderr.write(`norn mcp server ready (store: ${dbPath})\n`);
 }
 
 main().catch((err) => {

@@ -19,6 +19,7 @@ import type {
   NewMemory,
   RecallOptions,
   RecallResult,
+  RestorableMemory,
 } from "./types.js";
 
 export interface SqliteStorageOptions {
@@ -26,6 +27,12 @@ export interface SqliteStorageOptions {
   path?: string;
   /** Embedder used to vectorize content on write and queries on recall. */
   embedder: Embedder;
+  /**
+   * Scope stamped on every write: the project root this store represents, or
+   * null for a global/unscoped store. Recall/list callers pass a matching
+   * `scope` filter to enforce isolation. Defaults to null.
+   */
+  scope?: string | null;
   /** Clock, injectable for tests. Defaults to the system clock. */
   now?: () => Date;
 }
@@ -36,6 +43,7 @@ interface MemoryRow {
   content: string;
   tags: string;
   project: string | null;
+  scope: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -52,10 +60,12 @@ export class SqliteStorage implements Storage {
   private readonly db: Database.Database;
   private readonly embedder: Embedder;
   private readonly now: () => Date;
+  private readonly defaultScope: string | null;
 
   constructor(opts: SqliteStorageOptions) {
     this.embedder = opts.embedder;
     this.now = opts.now ?? (() => new Date());
+    this.defaultScope = opts.scope ?? null;
     const dbPath = opts.path ?? "norn.db";
     if (dbPath !== ":memory:") {
       mkdirSync(dirname(dbPath), { recursive: true });
@@ -71,6 +81,9 @@ export class SqliteStorage implements Storage {
   }
 
   private migrate(): void {
+    // Fresh databases get `scope` from the start. Note: the table is created
+    // without it below only for the IF NOT EXISTS no-op on old files; the
+    // addScopeColumn() step backfills the column on those.
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS memories (
         id         TEXT PRIMARY KEY,
@@ -82,6 +95,10 @@ export class SqliteStorage implements Storage {
       );
       CREATE INDEX IF NOT EXISTS idx_memories_project ON memories(project);
     `);
+    this.addScopeColumn();
+    this.db.exec(
+      `CREATE INDEX IF NOT EXISTS idx_memories_scope ON memories(scope);`,
+    );
     this.db.exec(
       `CREATE VIRTUAL TABLE IF NOT EXISTS memories_vec USING vec0(
         memory_id TEXT PRIMARY KEY,
@@ -90,25 +107,48 @@ export class SqliteStorage implements Storage {
     );
   }
 
+  /**
+   * Add the `scope` column to databases created before scoping existed.
+   * Idempotent and lossless: pre-existing rows keep all their data and get
+   * scope = NULL, which is treated as global (visible from any scope), so no
+   * memory disappears after the upgrade. SQLite has no `ADD COLUMN IF NOT
+   * EXISTS`, so we probe the schema first.
+   */
+  private addScopeColumn(): void {
+    const columns = this.db.prepare(`PRAGMA table_info(memories)`).all() as Array<{
+      name: string;
+    }>;
+    if (!columns.some((c) => c.name === "scope")) {
+      this.db.exec(`ALTER TABLE memories ADD COLUMN scope TEXT`);
+    }
+  }
+
   private static toMemory(row: MemoryRow): Memory {
     return {
       id: row.id,
       content: row.content,
       tags: JSON.parse(row.tags) as string[],
       project: row.project,
+      scope: row.scope ?? null,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
     };
   }
 
-  /** Nearest existing memory in the same project, with its similarity. */
+  /** Whether a stored row's scope is visible from `filter` (own + global). */
+  private static scopeVisible(rowScope: string | null, filter: string | null): boolean {
+    return rowScope === null || rowScope === filter;
+  }
+
+  /** Nearest existing memory in the same project and scope, with its similarity. */
   private nearest(
     embedding: Float32Array,
     project: string | null,
+    scope: string | null,
   ): { row: MemoryRow; similarity: number } | null {
     const rows = this.db
       .prepare(
-        `SELECT m.id, m.content, m.tags, m.project,
+        `SELECT m.id, m.content, m.tags, m.project, m.scope,
                 m.created_at AS createdAt, m.updated_at AS updatedAt,
                 v.distance AS distance
          FROM memories_vec v
@@ -119,7 +159,9 @@ export class SqliteStorage implements Storage {
       .all(new Uint8Array(embedding.buffer), 5) as Array<MemoryRow & { distance: number }>;
 
     for (const row of rows) {
-      if (row.project !== project) continue;
+      // Only ever merge into a memory of the same project label AND scope, so a
+      // write in one project can never collapse into another's record.
+      if (row.project !== project || row.scope !== scope) continue;
       const { distance, ...rest } = row;
       return { row: rest, similarity: similarityFromDistance(distance) };
     }
@@ -135,10 +177,11 @@ export class SqliteStorage implements Storage {
     const content = input.content.trim();
     if (!content) throw new Error("Cannot remember empty content");
     const project = input.project ?? null;
+    const scope = input.scope !== undefined ? input.scope : this.defaultScope;
     const tags = input.tags ?? [];
     const embedding = await this.embedder.embed(content);
 
-    const duplicate = this.nearest(embedding, project);
+    const duplicate = this.nearest(embedding, project, scope);
     if (duplicate && duplicate.similarity >= DEDUPE_THRESHOLD) {
       return this.mergeIntoExisting(duplicate.row, tags);
     }
@@ -149,12 +192,13 @@ export class SqliteStorage implements Storage {
       content,
       tags,
       project,
+      scope,
       createdAt: now,
       updatedAt: now,
     };
     const insertMemory = this.db.prepare(
-      `INSERT INTO memories (id, content, tags, project, created_at, updated_at)
-       VALUES (@id, @content, @tags, @project, @createdAt, @updatedAt)`,
+      `INSERT INTO memories (id, content, tags, project, scope, created_at, updated_at)
+       VALUES (@id, @content, @tags, @project, @scope, @createdAt, @updatedAt)`,
     );
     const insertVec = this.db.prepare(
       `INSERT INTO memories_vec (memory_id, embedding) VALUES (?, ?)`,
@@ -190,12 +234,13 @@ export class SqliteStorage implements Storage {
     const limit = opts.limit;
     const budget = opts.tokenBudget ?? DEFAULT_TOKEN_BUDGET;
     const filterProject = opts.project !== undefined;
+    const filterScope = opts.scope !== undefined;
     const poolSize = Math.max(50, (limit ?? 10) * 5);
     const q = await this.embedder.embed(query);
 
     const rows = this.db
       .prepare(
-        `SELECT m.id, m.content, m.tags, m.project,
+        `SELECT m.id, m.content, m.tags, m.project, m.scope,
                 m.created_at AS createdAt, m.updated_at AS updatedAt,
                 v.distance AS distance
          FROM memories_vec v
@@ -209,6 +254,7 @@ export class SqliteStorage implements Storage {
     const ranked: RecallResult[] = [];
     for (const row of rows) {
       if (filterProject && row.project !== (opts.project ?? null)) continue;
+      if (filterScope && !SqliteStorage.scopeVisible(row.scope, opts.scope ?? null)) continue;
       const { distance, ...rest } = row;
       const memory = SqliteStorage.toMemory(rest);
       const semantic = similarityFromDistance(distance);
@@ -229,6 +275,52 @@ export class SqliteStorage implements Storage {
     return out;
   }
 
+  /**
+   * Re-insert a memory from an export, keeping its id and timestamps and
+   * recomputing its embedding from `content`. Unlike {@link remember}, it does
+   * NOT dedupe or mint a new id: an import is a faithful rebuild of exact rows.
+   * It upserts on id (and rebuilds the matching vector row), so importing the
+   * same file twice is idempotent. Scope is stamped from this store's default,
+   * not carried in the export — see {@link RestorableMemory}.
+   */
+  async restore(input: RestorableMemory): Promise<Memory> {
+    const content = input.content.trim();
+    if (!content) throw new Error("Cannot restore empty content");
+    const embedding = await this.embedder.embed(content);
+    const memory: Memory = {
+      id: input.id,
+      content,
+      tags: input.tags ?? [],
+      project: input.project ?? null,
+      scope: this.defaultScope,
+      createdAt: input.createdAt,
+      updatedAt: input.updatedAt,
+    };
+    const upsertMemory = this.db.prepare(
+      `INSERT INTO memories (id, content, tags, project, scope, created_at, updated_at)
+       VALUES (@id, @content, @tags, @project, @scope, @createdAt, @updatedAt)
+       ON CONFLICT(id) DO UPDATE SET
+         content    = excluded.content,
+         tags       = excluded.tags,
+         project    = excluded.project,
+         scope      = excluded.scope,
+         created_at = excluded.created_at,
+         updated_at = excluded.updated_at`,
+    );
+    const deleteVec = this.db.prepare(`DELETE FROM memories_vec WHERE memory_id = ?`);
+    const insertVec = this.db.prepare(
+      `INSERT INTO memories_vec (memory_id, embedding) VALUES (?, ?)`,
+    );
+    this.db.transaction(() => {
+      upsertMemory.run({ ...memory, tags: JSON.stringify(memory.tags) });
+      // vec0 has no upsert; replace the vector row so a re-import reindexes.
+      deleteVec.run(memory.id);
+      insertVec.run(memory.id, new Uint8Array(embedding.buffer));
+    })();
+
+    return memory;
+  }
+
   async forget(id: string): Promise<boolean> {
     const result = this.db.transaction(() => {
       this.db.prepare(`DELETE FROM memories_vec WHERE memory_id = ?`).run(id);
@@ -244,13 +336,22 @@ export class SqliteStorage implements Storage {
       clauses.push(opts.project === null ? "project IS NULL" : "project = ?");
       if (opts.project !== null) params.push(opts.project);
     }
+    if (opts.scope !== undefined) {
+      // Own scope plus global (null), mirroring recall's scopeVisible().
+      if (opts.scope === null) {
+        clauses.push("scope IS NULL");
+      } else {
+        clauses.push("(scope IS NULL OR scope = ?)");
+        params.push(opts.scope);
+      }
+    }
     const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
     const limit = opts.limit ? "LIMIT ?" : "";
     if (opts.limit) params.push(opts.limit);
 
     const rows = this.db
       .prepare(
-        `SELECT id, content, tags, project,
+        `SELECT id, content, tags, project, scope,
                 created_at AS createdAt, updated_at AS updatedAt
          FROM memories ${where}
          ORDER BY created_at DESC ${limit}`,

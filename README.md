@@ -87,9 +87,123 @@ Claude Code / Cursor  ──MCP (stdio)──►  Norn MCP server  ┐
   token budget; `remember` dedupes near-identical notes.
 - **Dashboard** (`/web`): a Next.js app to browse and manage everything.
 
-All three default to the same file, `~/.norn/norn.db` (override with `NORN_DB_PATH`), so
-a memory written by your agent appears in the dashboard, and a memory you forget in the
-dashboard is gone for the agent too.
+All three resolve to the same store, so a memory written by your agent appears in the
+dashboard, and a memory you forget in the dashboard is gone for the agent too. The store
+is chosen in this order:
+
+1. `NORN_DB_PATH`, if set — an explicit override always wins.
+2. The nearest **project-local** `.norn/norn.db`, walking up from the working directory
+   (see [Per-project memory](#per-project-memory)).
+3. The global `~/.norn/norn.db`.
+
+With no project store and no override, this is the original behavior: one global
+`~/.norn/norn.db`.
+
+## Per-project memory
+
+Give a repo its own memory that ships with it. From the project root:
+
+```bash
+npx @samad001z/norn-core init   # or: norn init
+```
+
+This creates a `.norn/` directory holding that project's `norn.db`. Because each project
+has its own database file, **memories never bleed across projects**: an agent working in
+one repo only sees that repo's memory.
+
+### How a project is detected
+
+Norn finds your project the way git does — by walking **up** from the working directory
+to the nearest ancestor that contains a `.norn/` directory. Run your agent (or the CLI)
+anywhere inside the repo and it resolves to the same store. The store is chosen in this
+order:
+
+1. **`NORN_DB_PATH`**, if set — an explicit override always wins.
+2. The nearest **project-local** `.norn/norn.db`, walking up from the working directory.
+3. The global **`~/.norn/norn.db`** — the original behavior when no project store exists.
+
+Even without `norn init`, projects stay isolated in the shared global store: every memory
+is stamped with the project root it was written under (a `scope`, derived from the nearest
+`.git`/`.norn` ancestor — distinct from the freeform project label), and recall only
+returns the current project's memories plus global ones. Separate db files are the primary
+isolation; the scope stamp is defense in depth for the shared store.
+
+### Commit memory with the repo
+
+> `norn export` / `norn import` are available from **v1.1 onward**. On earlier versions,
+> commit the binary `norn.db` directly (the default `norn init` setup).
+
+`norn.db` is a binary SQLite file — it holds embedding vectors, so it has no readable git
+diffs and can conflict on merge. To version your memory cleanly, commit a **diffable text
+export** instead and let each checkout rebuild its own database:
+
+```bash
+norn export   # writes .norn/memory.json — text, tags, project, ids, timestamps (no vectors)
+```
+
+`memory.json` is sorted deterministically, so re-exporting an unchanged store produces an
+empty diff. Embeddings are **not** stored in it; they are regenerated locally on import, so
+the file stays small and review-friendly. Commit it and gitignore the binary store with a
+`.norn/.gitignore` like:
+
+```gitignore
+# .norn/.gitignore — commit memory.json, ignore the binary store.
+# norn.db is binary SQLite (it holds embedding vectors): no readable diffs,
+# and it can conflict on merge. memory.json (not listed here) is the
+# diffable file you commit; the sidecars below are always transient.
+norn.db
+norn.db-wal
+norn.db-shm
+norn.db-journal
+```
+
+> `norn init` (v1.1+) writes exactly this `.gitignore` for you, so `memory.json` is the
+> committed artifact out of the box. Prefer to commit the binary `norn.db` instead — no
+> import step on clone, at the cost of readable diffs? Just delete the `norn.db` line.
+
+On a fresh clone, rebuild the local database from the committed file:
+
+```bash
+norn import   # reads .norn/memory.json and regenerates embeddings locally
+```
+
+`import` upserts by id, so it is safe to re-run; it never duplicates a memory.
+
+### Try it: isolation, then commit-and-clone
+
+A self-contained, copy-paste walkthrough (uses `npx`, no install; needs Node 20+ and git):
+
+```bash
+# 1. Two separate projects, each with its own committed memory store.
+mkdir -p /tmp/demo/alpha /tmp/demo/beta
+
+cd /tmp/demo/alpha
+npx @samad001z/norn-core init
+npx @samad001z/norn-core remember "Alpha API rate limit is 600 requests per minute per token"
+
+cd /tmp/demo/beta
+npx @samad001z/norn-core init
+npx @samad001z/norn-core remember "Beta deploys to prod from the main branch on Vercel"
+
+# 2. Isolation: from Beta, ask for Alpha's fact. Beta only ever returns its own
+#    (and global) memories — Alpha's note never appears here.
+npx @samad001z/norn-core recall "what is the request rate limit"
+
+# 3. Export Alpha's memory to a diffable file and commit it.
+cd /tmp/demo/alpha
+npx @samad001z/norn-core export                       # writes .norn/memory.json
+git init -q && git add .norn/memory.json && git commit -qm "Add project memory"
+
+# 4. Simulate a teammate's fresh clone: bring the export, NOT the binary db.
+mkdir -p /tmp/demo/alpha-clone/.norn
+cp .norn/memory.json /tmp/demo/alpha-clone/.norn/memory.json
+
+# 5. Rebuild the store from the committed file and confirm recall works.
+cd /tmp/demo/alpha-clone
+npx @samad001z/norn-core import                       # regenerates embeddings locally
+npx @samad001z/norn-core recall "what is the request rate limit"
+#   → "Alpha API rate limit is 600 requests per minute per token"
+```
 
 ## Features
 
@@ -141,8 +255,11 @@ NORN_DB_PATH=/path/to/norn.db npm run dev:web
 Prefer the terminal? Inspect the same store without the dashboard:
 
 ```bash
+npm run cli -w @samad001z/norn-core -- init    # give this project its own committed store
 npm run cli -w @samad001z/norn-core -- list
 npm run cli -w @samad001z/norn-core -- recall "how do we deploy"
+npm run cli -w @samad001z/norn-core -- export  # write .norn/memory.json to commit with the repo
+npm run cli -w @samad001z/norn-core -- import  # rebuild this checkout's store from memory.json
 ```
 
 ## Roadmap

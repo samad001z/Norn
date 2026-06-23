@@ -4,6 +4,7 @@ import type {
   NewMemory,
   RecallOptions,
   RecallResult,
+  RestorableMemory,
 } from "./types.js";
 
 /**
@@ -26,6 +27,14 @@ export interface Storage {
 
   /** List memories, newest first, optionally scoped to a project. */
   list(opts?: ListOptions): Promise<Memory[]>;
+
+  /**
+   * Re-insert a memory from an export, preserving its id and timestamps and
+   * regenerating its embedding from `content`. Upserts by id, so re-importing
+   * the same file is idempotent rather than duplicating. The store stamps its
+   * own `scope`; the input carries none. Used by import; see the transfer module.
+   */
+  restore(memory: RestorableMemory): Promise<Memory>;
 
   /** Release any underlying resources (file handles, connections). */
   close(): Promise<void>;

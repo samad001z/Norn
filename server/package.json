@@ -1,6 +1,6 @@
 {
   "name": "@samad001z/norn-server",
-  "version": "0.1.0",
+  "version": "1.1.0",
   "description": "Norn MCP server with remember, recall, forget, and list tools over stdio.",
   "license": "MIT",
   "author": "samad001z",
@@ -44,7 +44,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.13.1",
-    "@samad001z/norn-core": "^0.1.0",
+    "@samad001z/norn-core": "^1.1.0",
     "zod": "^3.24.1"
   },
   "devDependencies": {

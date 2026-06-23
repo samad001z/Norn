@@ -5,7 +5,7 @@ import { promises as fs } from "node:fs";
 import {
   MiniLMEmbedder,
   SqliteStorage,
-  defaultDbPath,
+  resolveStore,
   type Memory as CoreMemory,
 } from "@samad001z/norn-core";
 
@@ -39,9 +39,15 @@ let seedChecked = false;
 
 function getStore(): SqliteStorage {
   if (!store) {
+    const { dbPath, scope } = resolveStore();
     store = new SqliteStorage({
-      path: defaultDbPath(),
+      // Project-aware: when the dashboard is launched inside a project that ran
+      // `norn init`, it reads that project's store. NORN_DB_PATH still wins.
+      // The dashboard intentionally lists across all scopes (it shows the whole
+      // store it opened), so it never passes a scope filter to list().
+      path: dbPath,
       embedder: new MiniLMEmbedder(),
+      scope,
       now: () => new Date(clock.ms),
     });
   }

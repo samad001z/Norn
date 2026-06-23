@@ -1,6 +1,6 @@
 {
   "name": "@samad001z/norn-core",
-  "version": "0.1.0",
+  "version": "1.1.0",
   "description": "Norn memory store: local SQLite + sqlite-vec, with a swappable embedding interface.",
   "license": "MIT",
   "author": "samad001z",
