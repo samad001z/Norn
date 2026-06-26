@@ -11,15 +11,21 @@ import {
 import {
   ArrowRight,
   Blocks,
+  Code2,
   Eye,
   GitBranch,
   GitCompare,
   Github,
   HardDrive,
   Hourglass,
+  Infinity as InfinityIcon,
+  MousePointer2,
   Scale,
   Search,
+  SquareTerminal,
   Star,
+  Wind,
+  Zap,
   type LucideIcon,
 } from "lucide-react";
 import { Reveal, EASE_OUT } from "@/components/landing/primitives";
@@ -332,6 +338,95 @@ function Hero() {
         <Reveal delay={0.15} y={24} className="relative z-10">
           <TerminalCard />
         </Reveal>
+      </div>
+    </section>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Works with — MCP-client marquee
+// ---------------------------------------------------------------------------
+
+// Minimal monochrome marks for the three named brands; the rest reuse lucide.
+function ClaudeMark({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden className={className}>
+      <g stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+        {[0, 45, 90, 135].map((a) => {
+          const r = (a * Math.PI) / 180;
+          return (
+            <line
+              key={a}
+              x1={12 - 7 * Math.cos(r)}
+              y1={12 - 7 * Math.sin(r)}
+              x2={12 + 7 * Math.cos(r)}
+              y2={12 + 7 * Math.sin(r)}
+            />
+          );
+        })}
+      </g>
+    </svg>
+  );
+}
+function OpenAIMark({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden className={className}>
+      <polygon points="12,3 19.5,7.5 19.5,16.5 12,21 4.5,16.5 4.5,7.5" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
+      <circle cx="12" cy="12" r="2" fill="currentColor" />
+    </svg>
+  );
+}
+function GeminiMark({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden className={className}>
+      <path
+        d="M12 2 C12.6 7.8 16.2 11.4 22 12 C16.2 12.6 12.6 16.2 12 22 C11.4 16.2 7.8 12.6 2 12 C7.8 11.4 11.4 7.8 12 2 Z"
+        fill="currentColor"
+      />
+    </svg>
+  );
+}
+
+type Mark = React.ComponentType<{ className?: string }>;
+const TOOLS: Array<{ name: string; mark: Mark }> = [
+  { name: "Claude", mark: ClaudeMark },
+  { name: "ChatGPT", mark: OpenAIMark },
+  { name: "Gemini", mark: GeminiMark },
+  { name: "Cursor", mark: (p) => <MousePointer2 {...p} /> },
+  { name: "Windsurf", mark: (p) => <Wind {...p} /> },
+  { name: "Cline", mark: (p) => <SquareTerminal {...p} /> },
+  { name: "Zed", mark: (p) => <Zap {...p} /> },
+  { name: "VS Code", mark: (p) => <Code2 {...p} /> },
+  { name: "Continue", mark: (p) => <InfinityIcon {...p} /> },
+];
+
+function ToolTile({ name, mark: Mark }: { name: string; mark: Mark }) {
+  return (
+    <div className="flex shrink-0 items-center gap-2.5 rounded-lg border border-silt bg-tide/50 px-4 py-2.5 transition-colors hover:border-candle/30">
+      <Mark className="size-[1.05rem] text-mist/70" />
+      <span className="whitespace-nowrap font-mono text-[0.8rem] text-mist">{name}</span>
+    </div>
+  );
+}
+
+function WorksWith() {
+  return (
+    <section className="relative z-10 border-y border-silt/60 bg-[#080b10] py-9">
+      <div className="mx-auto mb-6 max-w-3xl px-5 text-center">
+        <span className="font-mono text-[0.68rem] uppercase tracking-[0.24em] text-ember">
+          Works with any MCP client
+        </span>
+        <p className="mx-auto mt-3 max-w-xl text-[0.9rem] leading-relaxed text-fathom">
+          Norn is an MCP server over stdio, so it plugs into any MCP-compatible editor or
+          agent — no per-tool adapter. A few of them:
+        </p>
+      </div>
+      <div className="group relative overflow-hidden [mask-image:linear-gradient(to_right,transparent,#000_9%,#000_91%,transparent)]">
+        <div className="flex w-max animate-norn-marquee gap-3 px-1.5 group-hover:[animation-play-state:paused]">
+          {[...TOOLS, ...TOOLS].map((t, i) => (
+            <ToolTile key={`${t.name}-${i}`} {...t} />
+          ))}
+        </div>
       </div>
     </section>
   );
@@ -667,6 +762,7 @@ export function Landing() {
       <Header />
       <main className="relative">
         <Hero />
+        <WorksWith />
         <FeaturesSection />
         <HowItWorks />
         <WhatsNew />

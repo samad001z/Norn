@@ -113,6 +113,14 @@ html.lenis body {
 .animate-norn-pulse { animation: norn-pulse 7s ease-in-out infinite; }
 .animate-norn-blink { animation: norn-blink 1.05s steps(1) infinite; }
 
+/* Marquee: two identical copies translated by half the track, scrolling so items
+   travel left → right. Pauses on hover (set on the parent group). */
+@keyframes norn-marquee {
+  from { transform: translateX(-50%); }
+  to { transform: translateX(0); }
+}
+.animate-norn-marquee { animation: norn-marquee 42s linear infinite; }
+
 /* Quality floor: honor reduced motion. */
 @media (prefers-reduced-motion: reduce) {
   *,
