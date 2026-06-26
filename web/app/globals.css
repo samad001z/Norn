@@ -18,6 +18,7 @@
   --color-fathom: #73808f;
   --color-candle: #e9b87a;
   --color-ember: #c9924e;
+  --color-filament: #f6dcab; /* brighter candlelight — highlights & glow only */
 
   /* shadcn semantic tokens, resolved from :root below */
   --radius-sm: calc(var(--radius) - 4px);
@@ -98,6 +99,19 @@ html.lenis body {
 .lenis.lenis-stopped {
   overflow: hidden;
 }
+
+/* Landing-page motion: a candle that breathes, and a typing cursor. Both are
+   neutralized by the reduced-motion block below (animation-duration → 0). */
+@keyframes norn-pulse {
+  0%, 100% { opacity: 0.4; transform: scale(1); }
+  50% { opacity: 0.75; transform: scale(1.06); }
+}
+@keyframes norn-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+.animate-norn-pulse { animation: norn-pulse 7s ease-in-out infinite; }
+.animate-norn-blink { animation: norn-blink 1.05s steps(1) infinite; }
 
 /* Quality floor: honor reduced motion. */
 @media (prefers-reduced-motion: reduce) {
