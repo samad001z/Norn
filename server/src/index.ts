@@ -2,8 +2,10 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
+import { createRequire } from "node:module";
 import {
   MiniLMEmbedder,
+  NliContradictionScorer,
   SqliteStorage,
   resolveStore,
   type Memory,
@@ -17,15 +19,30 @@ import {
 // surfaces its own (and global) memories.
 const { dbPath, scope, isolate } = resolveStore();
 const filterScope = isolate ? scope : undefined;
+
+// Possible-conflict detection is opt-in via NORN_DETECT_CONFLICTS (1 or true).
+// Default off: when unset we never even construct the NLI scorer, so its ~70 MB
+// model is never referenced and never downloads. When on, the scorer is built but
+// still loads its model lazily — only when a write actually has a conflict candidate.
+const detectConflicts = ["1", "true"].includes(
+  (process.env.NORN_DETECT_CONFLICTS ?? "").toLowerCase(),
+);
 const storage: Storage = new SqliteStorage({
   path: dbPath,
   embedder: new MiniLMEmbedder(),
   scope,
+  detectConflicts,
+  contradictionScorer: detectConflicts ? new NliContradictionScorer() : undefined,
 });
+
+// Report the package's real version, read from its own package.json so the
+// advertised serverInfo.version can never drift from what's published.
+const req = createRequire(import.meta.url);
+const { version } = req("../package.json") as { version: string };
 
 const server = new McpServer({
   name: "norn",
-  version: "0.1.0",
+  version,
 });
 
 const projectArg = z
@@ -130,7 +147,10 @@ async function main(): Promise<void> {
   const transport = new StdioServerTransport();
   await server.connect(transport);
   // stdio servers communicate over stdout/stdin; log to stderr only.
-  process.stderr.write(`norn mcp server ready (store: ${dbPath})\n`);
+  const conflicts = detectConflicts
+    ? " · conflict detection ON (NLI model downloads on first conflicting write)"
+    : "";
+  process.stderr.write(`norn mcp server ready (store: ${dbPath})${conflicts}\n`);
 }
 
 main().catch((err) => {

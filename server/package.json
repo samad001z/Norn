@@ -1,6 +1,6 @@
 {
   "name": "@samad001z/norn-server",
-  "version": "1.2.0",
+  "version": "1.2.2",
   "description": "Norn MCP server with remember, recall, forget, and list tools over stdio.",
   "license": "MIT",
   "author": "samad001z",
