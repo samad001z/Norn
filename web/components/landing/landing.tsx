@@ -36,13 +36,11 @@ import { cn } from "@/lib/utils";
   One warm candlelight gold accent in a near-black room. No blue. No invented
   metrics, sync, or encryption claims — only the real, shipped feature set.
 
-  ── PLACEHOLDERS ────────────────────────────────────────────────────────────
-  The two shell commands below are written against the real package
-  (@samad001z/norn-server) and the real Claude Code `mcp add` syntax, but you
-  asked to paste the exact strings yourself — confirm/replace these two consts.
+  The one-line MCP install for Claude Code, against the published package
+  (@samad001z/norn-server). The same command appears in the hero terminal and the
+  final call-to-action.
 */
 const INSTALL_CMD = "claude mcp add norn -- npx -y @samad001z/norn-server";
-const NPM_CMD = "npx @samad001z/norn-server@latest";
 const GITHUB_URL = "https://github.com/samad001z/Norn";
 
 // ---------------------------------------------------------------------------
@@ -699,7 +697,7 @@ function FinalCta() {
 
         <div className="mx-auto mt-9 flex max-w-md items-center gap-3 rounded-lg border border-silt bg-[#0c1016] px-4 py-3 text-left font-mono text-[0.8rem]">
           <span className="select-none text-candle">$</span>
-          <code className="overflow-x-auto whitespace-nowrap text-mist">{NPM_CMD}</code>
+          <code className="overflow-x-auto whitespace-nowrap text-mist">{INSTALL_CMD}</code>
         </div>
 
         <div className="mt-7 flex flex-col items-center justify-center gap-3 sm:flex-row">
