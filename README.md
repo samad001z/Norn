@@ -2,7 +2,7 @@
 
 Persistent, visible memory for AI coding agents.
 
-**[Live site](https://norn-web-three.vercel.app)** · [Releases](https://github.com/samad001z/Norn/releases) · [Quickstart](#quickstart)
+**[Live site](https://norn-web-three.vercel.app)** · [Releases](https://github.com/samad001z/Norn/releases) · [Quickstart](#quickstart) · [Connect your AI tool](docs/connecting.md)
 
 ![The Norn dashboard: browse memories by project, search them live, and forget any one with a moment to undo](assets/demo.gif)
 
@@ -14,13 +14,24 @@ anything you do not want.
 
 ## Quickstart
 
-Requires Node 20+. Add Norn to Claude Code in one line, no clone:
+**What you need:** just **Node.js 20 or newer** — you don't install Norn separately,
+the command below fetches it automatically. Check with `node --version`; if it's
+missing or below v20, grab the LTS from [nodejs.org](https://nodejs.org).
+
+**Connect to Claude Code** — one command, no clone:
 
 ```bash
 claude mcp add norn -- npx -y @samad001z/norn-server
 ```
 
-For Cursor, Claude Desktop, or any MCP client, use the standard config:
+**Or use the CLI in your terminal** — run it on demand, or install the `norn` command:
+
+```bash
+npx @samad001z/norn-core list           # no install — npx fetches it each time
+npm install -g @samad001z/norn-core     # or put the `norn` command on your PATH
+```
+
+**Any other MCP client** — add this to its MCP config:
 
 ```json
 {
@@ -33,7 +44,21 @@ For Cursor, Claude Desktop, or any MCP client, use the standard config:
 }
 ```
 
-Restart your agent. Norn registers four tools: `remember`, `recall`, `forget`, `list`.
+Restart your tool. Norn registers four tools: `remember`, `recall`, `forget`, `list`.
+
+> **Optional — flag possible conflicts:** add `"env": { "NORN_DETECT_CONFLICTS": "1" }`
+> to the config above and Norn will surface memories that might disagree, for you to
+> resolve in the dashboard. Off by default; it downloads a small extra model the first
+> time it finds a candidate, and it never changes your store on its own.
+
+> **Not sure where that config goes?** The **[Connect Norn to your AI tool](docs/connecting.md)**
+> guide has exact, copy-paste setup for Claude Desktop, Cursor, Windsurf,
+> VS Code + GitHub Copilot, and Gemini CLI — plus a beginner "what you need" and
+> troubleshooting. (VS Code + Copilot uses a `servers` key instead of `mcpServers`.)
+
+**Verify it's connected:** tell your assistant *"Remember that I prefer pnpm over
+npm,"* then in a new chat ask *"What package manager do I prefer?"* — it should answer
+**pnpm** by calling Norn's `recall` tool.
 
 > The first `remember` or `recall` downloads a local embedding model
 > (all-MiniLM-L6-v2, ~25 MB) once, then runs fully offline.
@@ -235,6 +260,12 @@ npx @samad001z/norn-core recall "what is the request rate limit"
 - **Remembers across sessions and projects.** Stop re-pasting CLAUDE.md by hand.
 - **See everything it knows.** No black box: every memory is visible.
 - **Forget anything, with undo.** Full control over what it keeps.
+- **Surfaces stale memories.** Memories you haven't touched in a while are quietly
+  flagged in the dashboard so you can prune them. It surfaces — it never deletes.
+- **Possible-conflict detection (opt-in).** Set `NORN_DETECT_CONFLICTS=1` and Norn
+  flags memories that might disagree so you choose which to keep — it never
+  auto-resolves, edits, or deletes. Off by default; the extra model only downloads
+  once you turn it on.
 - **Lives in your tools over MCP.** Claude Code, Cursor, and any MCP client.
 - **Local-first.** Your context, the embedding model, and the database all stay on your
   machine.
@@ -291,8 +322,8 @@ npm run cli -w @samad001z/norn-core -- import  # rebuild this checkout's store f
 
 - Swappable embedding backends (Ollama, OpenAI-compatible) behind the existing `Embedder`
   interface.
-- Create and edit memories from the dashboard, not just browse and forget.
-- Optional end-to-end encrypted sync, off by default.
+- Edit memories in place from the dashboard (adding and forgetting already work).
+- A larger labelled benchmark for conflict detection, to tune the thresholds with more data.
 - More editor and MCP-client integrations.
 
 ## Contributing
