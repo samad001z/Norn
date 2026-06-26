@@ -1,6 +1,7 @@
 {
   "name": "@samad001z/norn-server",
-  "version": "1.2.2",
+  "version": "1.2.3",
+  "mcpName": "io.github.samad001z/norn",
   "description": "Norn MCP server with remember, recall, forget, and list tools over stdio.",
   "license": "MIT",
   "author": "samad001z",

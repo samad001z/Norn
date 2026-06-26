@@ -1,0 +1,32 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.samad001z/norn",
+  "title": "Norn",
+  "description": "Local-first, persistent memory for AI coding agents — remember, recall, forget, and list, over MCP.",
+  "repository": {
+    "url": "https://github.com/samad001z/Norn",
+    "source": "github"
+  },
+  "websiteUrl": "https://norn-web-three.vercel.app",
+  "version": "1.2.3",
+  "packages": [
+    {
+      "registryType": "npm",
+      "registryBaseUrl": "https://registry.npmjs.org",
+      "identifier": "@samad001z/norn-server",
+      "version": "1.2.3",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "NORN_DETECT_CONFLICTS",
+          "description": "Set to 1 to opt in to possible-conflict detection. Off by default; downloads a small NLI model on first use. Surface-only — never edits, merges, or deletes memories.",
+          "isRequired": false,
+          "isSecret": false,
+          "format": "string"
+        }
+      ]
+    }
+  ]
+}
