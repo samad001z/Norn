@@ -18,6 +18,9 @@ export interface UiMemory {
   content: string;
   tags: string[];
   project: string | null;
+  /** Project root the memory was written under, or null for global. Shown in detail. */
+  scope: string | null;
+  createdAt: string;
   updatedAt: string;
   /**
    * Computed freshness level (fresh / aging / stale), derived on the fly from the
@@ -70,6 +73,8 @@ function toUi(m: CoreMemory, now: Date): UiMemory {
     content: m.content,
     tags: m.tags,
     project: m.project,
+    scope: m.scope,
+    createdAt: m.createdAt,
     updatedAt: m.updatedAt,
     staleness: stalenessScore(m, now),
     conflictsWith: parseMetadata(m.metadata).possible_conflict_with ?? [],
@@ -100,6 +105,21 @@ export async function listMemories(): Promise<UiMemory[]> {
 
 export async function forgetMemory(id: string): Promise<boolean> {
   return getStore().forget(id);
+}
+
+/** Add a memory from the dashboard. Returns the stored row in UI shape. */
+export async function addMemory(input: {
+  content: string;
+  project: string | null;
+  tags: string[];
+}): Promise<UiMemory> {
+  const s = getStore();
+  const m = await s.remember({
+    content: input.content,
+    project: input.project,
+    tags: input.tags,
+  });
+  return toUi(m, new Date(clock.ms));
 }
 
 /** "Keep both": clear the possible-conflict link between two memories. */

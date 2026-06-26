@@ -16,6 +16,9 @@ export interface Memory {
   content: string;
   tags: string[];
   project: string | null;
+  /** Project root the memory was written under, or null for global. */
+  scope: string | null;
+  createdAt: string;
   updatedAt: string;
   /**
    * Computed freshness, surfaced so the user can prune at a glance. "fresh" shows
