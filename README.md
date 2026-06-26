@@ -71,6 +71,31 @@ keywords.
 > Norn returns "Deploy to production from the main branch on Vercel." even though the
 > query shares no keywords with the stored note.
 
+## Using memory: it's explicit, not automatic
+
+Norn does **not** record your sessions. It is a memory store, not a logger — it never
+silently captures your prompts, code edits, or terminal commands. A memory exists only
+when the agent calls `remember()`, which happens in two ways:
+
+- **You ask for it.** *"Remember that we deploy from `main` on Vercel."* The agent calls
+  `remember(...)` and the note is saved.
+- **The agent chooses to**, when it judges a fact worth keeping for next session — a
+  decision, a preference, a constraint.
+
+That is the point: **you decide what's kept**, so the store stays signal, not noise. The
+flip side is that **if you never ask, nothing is saved** — so a sparse dashboard after a
+long working session is expected, not a bug. The work itself lives in git; Norn is for the
+durable facts you want recalled later.
+
+A few habits that make it pay off:
+
+- End a task with **"remember the key decisions from this"** and the agent writes them down.
+- Front-load context once — **"remember my stack and conventions"** — instead of
+  re-pasting it every session.
+- Ask **"what do you remember about X?"** to make the agent call `recall()` on demand.
+
+Everything saved this way shows up in the dashboard, and you can forget any of it.
+
 ## How it works
 
 Three local pieces share one local database:
