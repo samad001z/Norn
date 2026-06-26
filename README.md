@@ -1,3 +1,5 @@
+<p align="center"><img src="assets/norn-logo.png" alt="Norn" width="140" /></p>
+
 # Norn
 
 Persistent, visible memory for AI coding agents.
