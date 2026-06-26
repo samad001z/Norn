@@ -1,0 +1,44 @@
+{
+  "_about": "Labelled fixture for tuning the two-stage conflict detector. Each pair: a, b, conflict (the truth), category. Run scripts/eval-conflict-detection.mjs to score the live pipeline (MiniLM + NLI) against it and sweep thresholds. Keep balanced; add real cases you find in the wild.",
+  "pairs": [
+    { "a": "We deploy on Vercel", "b": "We deploy on Railway", "conflict": true, "category": "entity_swap" },
+    { "a": "Use Postgres for the database", "b": "Use MySQL for the database", "conflict": true, "category": "entity_swap" },
+    { "a": "Host the assets on AWS S3", "b": "Host the assets on Cloudflare R2", "conflict": true, "category": "entity_swap" },
+    { "a": "The package manager is npm", "b": "The package manager is pnpm", "conflict": true, "category": "entity_swap" },
+    { "a": "Auth uses JWT tokens", "b": "Auth uses session cookies", "conflict": true, "category": "entity_swap" },
+    { "a": "The primary region is us-east-1", "b": "The primary region is eu-west-1", "conflict": true, "category": "entity_swap" },
+
+    { "a": "The rate limit is 600 requests per minute", "b": "The rate limit is 1000 requests per minute", "conflict": true, "category": "value_swap" },
+    { "a": "Rotate signing keys every 90 days", "b": "Rotate signing keys every 30 days", "conflict": true, "category": "value_swap" },
+    { "a": "The dev server runs on port 3000", "b": "The dev server runs on port 8080", "conflict": true, "category": "value_swap" },
+    { "a": "Sessions expire after 24 hours", "b": "Sessions expire after 1 hour", "conflict": true, "category": "value_swap" },
+    { "a": "Keep the line width at 80 characters", "b": "Keep the line width at 120 characters", "conflict": true, "category": "value_swap" },
+
+    { "a": "The team prefers tabs over spaces", "b": "The team prefers spaces over tabs", "conflict": true, "category": "order_antonym" },
+    { "a": "Feature flags default to enabled", "b": "Feature flags default to disabled", "conflict": true, "category": "order_antonym" },
+    { "a": "Telemetry is opt-in", "b": "Telemetry is opt-out", "conflict": true, "category": "order_antonym" },
+    { "a": "Force-push to main is allowed", "b": "Force-push to main is forbidden", "conflict": true, "category": "order_antonym" },
+
+    { "a": "Two-factor auth is required for all users", "b": "Two-factor auth is optional for all users", "conflict": true, "category": "negation" },
+    { "a": "Always squash commits before merging", "b": "Never squash commits before merging", "conflict": true, "category": "negation" },
+    { "a": "The API is publicly accessible", "b": "The API is not publicly accessible", "conflict": true, "category": "negation" },
+
+    { "a": "We deploy on Vercel", "b": "We deploy on Vercel from the main branch", "conflict": false, "category": "refinement" },
+    { "a": "Rotate signing keys every 90 days", "b": "Rotate signing keys every 90 days using the infra/rotate-keys job", "conflict": false, "category": "refinement" },
+    { "a": "The dev server runs on port 3000", "b": "The dev server runs on port 3000 by default", "conflict": false, "category": "refinement" },
+
+    { "a": "The rate limit is 600 requests per minute", "b": "Rate limit: 600 requests per minute per token", "conflict": false, "category": "paraphrase" },
+    { "a": "The team prefers tabs over spaces", "b": "Our convention is tabs, not spaces", "conflict": false, "category": "paraphrase" },
+    { "a": "Deploy to production from the main branch", "b": "Production deploys come off main", "conflict": false, "category": "paraphrase" },
+
+    { "a": "We deploy on Vercel", "b": "Staging auto-deploys from the develop branch", "conflict": false, "category": "complementary" },
+    { "a": "The API uses bearer tokens", "b": "The API returns JSON", "conflict": false, "category": "complementary" },
+    { "a": "Use Postgres for the database", "b": "Use Redis for the cache", "conflict": false, "category": "complementary" },
+    { "a": "Rotate signing keys every 90 days", "b": "Store secrets in the vault, never in env files", "conflict": false, "category": "complementary" },
+
+    { "a": "We deploy on Vercel", "b": "The team prefers tabs over spaces", "conflict": false, "category": "unrelated" },
+    { "a": "Rotate signing keys every 90 days", "b": "The cafe near the office makes a good flat white", "conflict": false, "category": "unrelated" },
+    { "a": "The dev server runs on port 3000", "b": "Keep commits small and put the why in the body", "conflict": false, "category": "unrelated" },
+    { "a": "Sessions expire after 24 hours", "b": "The mascot is a small owl named Norn", "conflict": false, "category": "unrelated" }
+  ]
+}

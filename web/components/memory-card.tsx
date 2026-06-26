@@ -1,7 +1,9 @@
 "use client";
 
 import { Edit, MoreHorizontal, Trash2 } from "lucide-react";
+import type { StalenessLevel } from "@samad001z/norn-core";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,6 +17,41 @@ export interface Memory {
   tags: string[];
   project: string | null;
   updatedAt: string;
+  /**
+   * Computed freshness, surfaced so the user can prune at a glance. "fresh" shows
+   * nothing; "aging"/"stale" get a quiet indicator. Read-time only — never stored.
+   */
+  staleness: StalenessLevel;
+  /** Ids of memories this one may contradict, surfaced for the conflict-review panel. */
+  conflictsWith: string[];
+}
+
+/**
+ * A small, calm freshness marker — a guttering-candle dot, not an alarm. Fresh
+ * memories render nothing. The `title` gives the plain-language "why" on hover.
+ */
+function StalenessMark({ level }: { level: StalenessLevel }) {
+  if (level === "fresh") return null;
+  const stale = level === "stale";
+  return (
+    <span
+      title={
+        stale
+          ? "Not recalled in a while. Review it — forget it if it no longer earns its place."
+          : "Cooling — not recalled recently."
+      }
+      className={cn(
+        "inline-flex items-center gap-1.5",
+        stale ? "text-ember" : "text-fathom",
+      )}
+    >
+      <span
+        aria-hidden
+        className={cn("size-1.5 rounded-full", stale ? "bg-ember/80" : "bg-fathom/60")}
+      />
+      {level}
+    </span>
+  );
 }
 
 export interface MemoryCardProps {
@@ -56,6 +93,12 @@ export function MemoryCard({ memory, onEdit, onForget }: MemoryCardProps) {
               </div>
             )}
             <span className="ml-auto inline-flex items-center gap-2 whitespace-nowrap">
+              <StalenessMark level={memory.staleness} />
+              {memory.staleness !== "fresh" && (
+                <span aria-hidden className="text-silt">
+                  ·
+                </span>
+              )}
               {memory.project && (
                 <>
                   <span className="text-mist/70">{memory.project}</span>

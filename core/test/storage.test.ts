@@ -1,6 +1,6 @@
 import { beforeEach, describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { HashEmbedder, SqliteStorage, estimateTokens, type Embedder, type Storage } from "../src/index.js";
+import { HashEmbedder, SqliteStorage, estimateTokens, parseMetadata, type Embedder, type Storage } from "../src/index.js";
 
 /** Deterministic embedder: maps known strings to fixed (then normalized) vectors. */
 class StubEmbedder implements Embedder {
@@ -51,6 +51,13 @@ describe("remember + list", () => {
     const m = await store.remember({ content: "a flat white" });
     assert.deepEqual(m.tags, []);
     assert.equal(m.project, null);
+  });
+
+  it("defaults metadata to null and round-trips it through list and recall", async () => {
+    const m = await store.remember({ content: "a fact worth keeping" });
+    assert.equal(m.metadata, null, "no soft signals on write");
+    assert.equal((await store.list())[0]!.metadata, null, "null survives list");
+    assert.equal((await store.recall("a fact worth keeping"))[0]!.metadata, null, "null survives recall");
   });
 
   it("rejects empty content", async () => {
@@ -188,5 +195,53 @@ describe("recall: semantic + recency within a token budget", () => {
     await store.remember({ content: "two" });
     await store.remember({ content: "three" });
     assert.equal((await store.recall("number", { limit: 1 })).length, 1);
+  });
+});
+
+describe("recall stamps access signals into metadata", () => {
+  const stub = () =>
+    new StubEmbedder({ "find me": [1, 0, 0, 0], "the answer": [1, 0, 0, 0] }, 4);
+
+  it("sets last_recalled_at and increments recall_count on each recall", async () => {
+    const { c, now } = clockAt("2026-04-01T00:00:00Z");
+    const store = new SqliteStorage({ path: ":memory:", embedder: stub(), now });
+    const m = await store.remember({ content: "the answer" });
+    assert.equal(m.metadata, null, "no signals before any recall");
+
+    c.current = new Date("2026-04-02T00:00:00Z");
+    const r1 = await store.recall("find me");
+    assert.equal(r1[0]!.id, m.id, "the memory is surfaced");
+
+    const after1 = parseMetadata((await store.list())[0]!.metadata);
+    assert.equal(after1.recall_count, 1, "count starts at 1");
+    assert.equal(after1.last_recalled_at, "2026-04-02T00:00:00.000Z", "stamped at recall time");
+
+    c.current = new Date("2026-04-03T00:00:00Z");
+    await store.recall("find me");
+    const after2 = parseMetadata((await store.list())[0]!.metadata);
+    assert.equal(after2.recall_count, 2, "count increments on the second recall");
+    assert.equal(after2.last_recalled_at, "2026-04-03T00:00:00.000Z", "timestamp refreshed");
+  });
+
+  it("does not touch updated_at — a recall is an access, not an edit", async () => {
+    const { c, now } = clockAt("2026-04-01T00:00:00Z");
+    const store = new SqliteStorage({ path: ":memory:", embedder: stub(), now });
+    const m = await store.remember({ content: "the answer" });
+
+    c.current = new Date("2026-05-01T00:00:00Z"); // a month later
+    await store.recall("find me");
+
+    const after = (await store.list())[0]!;
+    assert.equal(after.updatedAt, m.updatedAt, "updated_at unchanged by recall");
+    assert.equal(parseMetadata(after.metadata).recall_count, 1, "but the access was recorded");
+  });
+
+  it("a NULL-metadata memory recalls exactly as today (shape and values unchanged)", async () => {
+    const store = new SqliteStorage({ path: ":memory:", embedder: stub() });
+    await store.remember({ content: "the answer" });
+    const r = await store.recall("find me");
+    assert.equal(r.length, 1);
+    assert.equal(r[0]!.metadata, null, "query-time snapshot: pre-stamp value returned");
+    assert.equal(typeof r[0]!.score, "number", "score still present");
   });
 });

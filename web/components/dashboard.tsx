@@ -3,12 +3,13 @@
 import * as React from "react";
 import { SearchBar } from "@/components/search-bar";
 import { MemoryList } from "@/components/memory-list";
+import { ConflictReview, type ConflictPair } from "@/components/conflict-review";
 import { ProjectRail, type ProjectItem } from "@/components/project-rail";
 import { WellShaft } from "@/components/well-shaft";
 import { EmptyState } from "@/components/empty-state";
 import { Button } from "@/components/ui/button";
 import type { Memory } from "@/components/memory-card";
-import { forgetMemoryAction } from "@/app/actions";
+import { forgetMemoryAction, resolveConflictAction } from "@/app/actions";
 import { cn } from "@/lib/utils";
 
 const shorten = (s: string) => (s.length > 48 ? `${s.slice(0, 48)}…` : s);
@@ -23,6 +24,9 @@ export function Dashboard({
   const [memories, setMemories] = React.useState<Memory[]>(initialMemories);
   const [query, setQuery] = React.useState("");
   const [active, setActive] = React.useState("all");
+  // "Needs review" mode: show only non-fresh memories, most prunable first, so a
+  // user can review-and-forget in one place. Off by default — surfacing, not nagging.
+  const [reviewing, setReviewing] = React.useState(false);
   const [forgotten, setForgotten] = React.useState<{ memory: Memory; index: number } | null>(null);
 
   const searchRef = React.useRef<HTMLInputElement>(null);
@@ -65,20 +69,34 @@ export function Dashboard({
     ];
   }, [memories]);
 
+  // How many memories want a look — drives the review toggle's count and whether
+  // it's worth showing at all.
+  const reviewCount = React.useMemo(
+    () => memories.filter((m) => m.staleness !== "fresh").length,
+    [memories],
+  );
+
+  // Stale first, then aging; fresh is filtered out before this ever applies.
+  const STALE_ORDER: Record<Memory["staleness"], number> = { stale: 0, aging: 1, fresh: 2 };
+
   const visible = React.useMemo(() => {
     const q = query.trim().toLowerCase();
-    return memories.filter((m) => {
+    const filtered = memories.filter((m) => {
       const inScope =
         active === "all" ||
         (active === "global" ? m.project === null : m.project === active);
       if (!inScope) return false;
+      if (reviewing && m.staleness === "fresh") return false;
       if (!q) return true;
       return (
         m.content.toLowerCase().includes(q) ||
         m.tags.some((t) => t.toLowerCase().includes(q))
       );
     });
-  }, [memories, query, active]);
+    if (!reviewing) return filtered;
+    // Surface the most prunable first; ties keep the store's recency order.
+    return [...filtered].sort((a, b) => STALE_ORDER[a.staleness] - STALE_ORDER[b.staleness]);
+  }, [memories, query, active, reviewing]);
 
   const forget = (id: string) => {
     const index = memories.findIndex((m) => m.id === id);
@@ -105,6 +123,38 @@ export function Dashboard({
     setForgotten(null);
   };
 
+  // Flagged "possible conflict" pairs, each listed once (id order), with both
+  // memories present. The store keeps the links symmetric, so reading one side is enough.
+  const conflictPairs = React.useMemo<ConflictPair[]>(() => {
+    const byId = new Map(memories.map((m) => [m.id, m]));
+    const pairs: ConflictPair[] = [];
+    for (const m of memories) {
+      for (const otherId of m.conflictsWith) {
+        if (m.id >= otherId) continue; // emit each pair once
+        const other = byId.get(otherId);
+        if (other) pairs.push({ a: m, b: other });
+      }
+    }
+    return pairs;
+  }, [memories]);
+
+  // "Keep this": forget the other memory. Reuses the same undo-able delete as the
+  // card menu — the store drops the dangling link from the kept memory on commit.
+  const keepOne = (_keepId: string, dropId: string) => forget(dropId);
+
+  // "Keep both": dismiss the flag without deleting anything. Clear the link locally
+  // and on disk; non-destructive, so no undo window.
+  const keepBoth = (aId: string, bId: string) => {
+    setMemories((prev) =>
+      prev.map((m) => {
+        if (m.id === aId) return { ...m, conflictsWith: m.conflictsWith.filter((x) => x !== bId) };
+        if (m.id === bId) return { ...m, conflictsWith: m.conflictsWith.filter((x) => x !== aId) };
+        return m;
+      }),
+    );
+    void resolveConflictAction(aId, bId);
+  };
+
   const clearSearch = () => {
     setQuery("");
     searchRef.current?.focus();
@@ -113,6 +163,7 @@ export function Dashboard({
   const resetView = () => {
     setQuery("");
     setActive("all");
+    setReviewing(false);
     searchRef.current?.focus();
   };
 
@@ -171,9 +222,33 @@ export function Dashboard({
             ))}
           </div>
 
-          <div className="mb-8 flex items-baseline justify-between">
+          <ConflictReview pairs={conflictPairs} onKeep={keepOne} onKeepBoth={keepBoth} />
+
+          <div className="mb-8 flex items-baseline justify-between gap-4">
             <h1 className="font-display text-[2.25rem] leading-none text-mist">memories</h1>
-            <span className="font-mono text-xs text-fathom">{visible.length} shown</span>
+            <div className="flex items-center gap-4">
+              {reviewCount > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setReviewing((v) => !v)}
+                  aria-pressed={reviewing}
+                  title="Show memories that haven't been recalled in a while, most prunable first."
+                  className={cn(
+                    "inline-flex shrink-0 items-center gap-2 rounded-full border px-3 py-1 text-xs outline-none transition-colors focus-visible:ring-2 focus-visible:ring-candle/40",
+                    reviewing
+                      ? "border-ember/40 bg-silt/60 text-mist"
+                      : "border-silt text-fathom hover:text-mist",
+                  )}
+                >
+                  <span aria-hidden className="size-1.5 rounded-full bg-ember/80" />
+                  Needs review
+                  <span className="font-mono text-[0.625rem] text-fathom">{reviewCount}</span>
+                </button>
+              )}
+              <span className="whitespace-nowrap font-mono text-xs text-fathom">
+                {visible.length} shown
+              </span>
+            </div>
           </div>
 
           <div className="relative">
@@ -210,27 +285,40 @@ export function Dashboard({
                 <EmptyState onRemember={() => {}} />
               ) : visible.length === 0 ? (
                 <div className="flex flex-col items-center justify-center px-6 py-20 text-center">
-                  <h2 className="font-display text-[1.75rem] italic leading-[1.15] text-mist">
-                    Nothing surfaces.
-                  </h2>
-                  <p className="mt-3 max-w-sm text-sm leading-relaxed text-fathom">
-                    No memory matches{" "}
-                    {query.trim() && (
-                      <span className="text-mist/80">“{query.trim()}” </span>
-                    )}
-                    here. Try another word or widen the search.
-                  </p>
+                  {reviewing && !query.trim() ? (
+                    <>
+                      <h2 className="font-display text-[1.75rem] italic leading-[1.15] text-mist">
+                        Nothing to prune.
+                      </h2>
+                      <p className="mt-3 max-w-sm text-sm leading-relaxed text-fathom">
+                        Every memory here is fresh. Nothing has gone cold.
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <h2 className="font-display text-[1.75rem] italic leading-[1.15] text-mist">
+                        Nothing surfaces.
+                      </h2>
+                      <p className="mt-3 max-w-sm text-sm leading-relaxed text-fathom">
+                        No memory matches{" "}
+                        {query.trim() && (
+                          <span className="text-mist/80">“{query.trim()}” </span>
+                        )}
+                        here. Try another word or widen the search.
+                      </p>
+                    </>
+                  )}
                   <Button
                     variant="outline"
                     onClick={resetView}
                     className="mt-7 border-silt bg-transparent text-mist hover:bg-silt hover:text-mist"
                   >
-                    Clear search
+                    {reviewing && !query.trim() ? "Back to all memories" : "Clear search"}
                   </Button>
                 </div>
               ) : (
                 <MemoryList
-                  key={`${active}|${query}`}
+                  key={`${active}|${query}|${reviewing}`}
                   memories={visible}
                   onForget={forget}
                 />

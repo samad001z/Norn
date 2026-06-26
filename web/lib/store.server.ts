@@ -5,8 +5,11 @@ import { promises as fs } from "node:fs";
 import {
   MiniLMEmbedder,
   SqliteStorage,
+  parseMetadata,
   resolveStore,
+  stalenessScore,
   type Memory as CoreMemory,
+  type StalenessLevel,
 } from "@samad001z/norn-core";
 
 /** The memory shape the dashboard UI consumes. */
@@ -16,6 +19,13 @@ export interface UiMemory {
   tags: string[];
   project: string | null;
   updatedAt: string;
+  /**
+   * Computed freshness level (fresh / aging / stale), derived on the fly from the
+   * memory's age and recall stats. Never stored — it reflects the moment it was read.
+   */
+  staleness: StalenessLevel;
+  /** Ids of memories this one may contradict (from metadata.possible_conflict_with). */
+  conflictsWith: string[];
 }
 
 // Demo seed. The store's injectable clock gives each one a realistic age so
@@ -54,8 +64,16 @@ function getStore(): SqliteStorage {
   return store;
 }
 
-function toUi(m: CoreMemory): UiMemory {
-  return { id: m.id, content: m.content, tags: m.tags, project: m.project, updatedAt: m.updatedAt };
+function toUi(m: CoreMemory, now: Date): UiMemory {
+  return {
+    id: m.id,
+    content: m.content,
+    tags: m.tags,
+    project: m.project,
+    updatedAt: m.updatedAt,
+    staleness: stalenessScore(m, now),
+    conflictsWith: parseMetadata(m.metadata).possible_conflict_with ?? [],
+  };
 }
 
 async function seedIfEmpty(s: SqliteStorage): Promise<void> {
@@ -74,11 +92,19 @@ export async function listMemories(): Promise<UiMemory[]> {
   const s = getStore();
   await seedIfEmpty(s);
   const all = await s.list();
-  return all.map(toUi);
+  // Staleness is read-time: compute every memory's level against one "now" so the
+  // whole list is classified consistently for this request.
+  const now = new Date(clock.ms);
+  return all.map((m) => toUi(m, now));
 }
 
 export async function forgetMemory(id: string): Promise<boolean> {
   return getStore().forget(id);
+}
+
+/** "Keep both": clear the possible-conflict link between two memories. */
+export async function resolveConflict(idA: string, idB: string): Promise<void> {
+  return getStore().resolveConflict(idA, idB);
 }
 
 /** Persist an early-access signup. Placeholder sink (a real app routes to a CRM). */

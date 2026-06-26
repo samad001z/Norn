@@ -126,6 +126,7 @@ describe("safe migration from a pre-scope database", () => {
       assert.equal(all[0]!.content, "a legacy memory from before scoping");
       assert.equal(all[0]!.project, "oldproj", "old data preserved");
       assert.equal(all[0]!.scope, null, "legacy rows become global (scope null)");
+      assert.equal(all[0]!.metadata, null, "legacy rows have no soft signals yet");
 
       // Legacy rows stay visible from any scope, so nothing disappears.
       const recalled = await store.recall("a legacy memory from before scoping", {
@@ -141,6 +142,7 @@ describe("safe migration from a pre-scope database", () => {
         .prepare(`PRAGMA table_info(memories)`)
         .all() as Array<{ name: string }>;
       assert.ok(cols.some((c) => c.name === "scope"), "scope column added");
+      assert.ok(cols.some((c) => c.name === "metadata"), "metadata column added");
     } finally {
       await store.close();
     }
@@ -158,6 +160,82 @@ describe("safe migration from a pre-scope database", () => {
       assert.equal((await s2.list()).length, 1);
     } finally {
       await s2.close();
+    }
+  });
+});
+
+describe("safe migration from a pre-metadata database", () => {
+  it("adds the metadata column without losing rows; old rows survive as NULL and recall", async () => {
+    const dbPath = path.join(tmp, "pre-metadata.db");
+    const embedder = new HashEmbedder();
+    const iso = "2026-02-01T00:00:00.000Z";
+
+    // Build a database one version back: it already has `scope` (post-scope) but
+    // NOT `metadata`, exactly as a Norn between those two upgrades would write it.
+    const raw = new Database(dbPath);
+    sqliteVec.load(raw);
+    raw.exec(`
+      CREATE TABLE memories (
+        id         TEXT PRIMARY KEY,
+        content    TEXT NOT NULL,
+        tags       TEXT NOT NULL DEFAULT '[]',
+        project    TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        scope      TEXT
+      );
+      CREATE INDEX idx_memories_project ON memories(project);
+      CREATE INDEX idx_memories_scope ON memories(scope);
+    `);
+    raw.exec(
+      `CREATE VIRTUAL TABLE memories_vec USING vec0(
+        memory_id TEXT PRIMARY KEY,
+        embedding FLOAT[${embedder.dimensions}]
+      );`,
+    );
+    const emb = await embedder.embed("a memory from before soft signals");
+    raw
+      .prepare(
+        `INSERT INTO memories (id, content, tags, project, created_at, updated_at, scope)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .run("pre-1", "a memory from before soft signals", "[]", "proj", iso, iso, "/proj/current");
+    raw
+      .prepare(`INSERT INTO memories_vec (memory_id, embedding) VALUES (?, ?)`)
+      .run("pre-1", new Uint8Array(emb.buffer));
+    raw.close();
+
+    // Open with the current code: migrate() should add `metadata` and leave the
+    // row — including its existing scope — intact.
+    const store = new SqliteStorage({ path: dbPath, embedder, scope: "/proj/current" });
+    try {
+      const all = await store.list();
+      assert.equal(all.length, 1, "the pre-metadata row survived migration");
+      assert.equal(all[0]!.id, "pre-1");
+      assert.equal(all[0]!.content, "a memory from before soft signals");
+      assert.equal(all[0]!.scope, "/proj/current", "existing scope preserved");
+      assert.equal(all[0]!.metadata, null, "old rows have metadata NULL (no signals yet)");
+
+      // The row is still recallable from its own scope after the upgrade.
+      const recalled = await store.recall("a memory from before soft signals", {
+        scope: "/proj/current",
+      });
+      assert.ok(
+        recalled.some((r) => r.id === "pre-1"),
+        "pre-metadata memory is still recallable after upgrade",
+      );
+
+      // The schema really did gain the column, and only once.
+      const cols = (store as unknown as { db: Database.Database }).db
+        .prepare(`PRAGMA table_info(memories)`)
+        .all() as Array<{ name: string }>;
+      assert.equal(
+        cols.filter((c) => c.name === "metadata").length,
+        1,
+        "metadata column added exactly once",
+      );
+    } finally {
+      await store.close();
     }
   });
 });

@@ -20,6 +20,15 @@ export interface Memory {
   createdAt: string;
   /** ISO 8601 timestamp of last edit. */
   updatedAt: string;
+  /**
+   * Evolving "soft" signals about this memory — staleness inputs, confidence,
+   * recall stats, contradiction flags — kept as one open JSON bag so new signals
+   * never need a schema migration. Null means no signals recorded yet (the
+   * default, and what every pre-metadata row migrates to). Reserved for things we
+   * derive and display, not isolate or filter on; durable structured facts stay
+   * as their own columns. Currently always null on write — tracking lands later.
+   */
+  metadata: Record<string, unknown> | null;
 }
 
 /** Input for {@link Storage.remember}. */

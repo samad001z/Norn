@@ -13,20 +13,26 @@ const SAMPLE: Memory[] = [
     tags: ["ops", "deploy"],
     project: "acme-web",
     updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(),
+    staleness: "fresh",
+    conflictsWith: [],
   },
   {
     id: "mem-002",
     content: "The team prefers tabs over spaces, and 100-character line width.",
     tags: ["style"],
     project: "acme-web",
-    updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 5).toISOString(),
+    updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 45).toISOString(),
+    staleness: "aging",
+    conflictsWith: [],
   },
   {
     id: "mem-003",
     content: "Embeddings live behind a swappable interface. The placeholder is not semantic yet.",
     tags: ["architecture", "embeddings"],
     project: null,
-    updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 12).toISOString(),
+    updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 120).toISOString(),
+    staleness: "stale",
+    conflictsWith: [],
   },
 ];
 

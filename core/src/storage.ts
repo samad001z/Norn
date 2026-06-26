@@ -22,8 +22,20 @@ export interface Storage {
   /** Semantic search: memories most relevant to `query`, best first. */
   recall(query: string, opts?: RecallOptions): Promise<RecallResult[]>;
 
-  /** Forget a memory by id. Resolves false if no such memory existed. */
+  /**
+   * Forget a memory by id. Resolves false if no such memory existed. Also drops
+   * this id from any other memory's `possible_conflict_with`, so a resolved or
+   * deleted memory never leaves a dangling conflict link behind.
+   */
   forget(id: string): Promise<boolean>;
+
+  /**
+   * Clear the possible-conflict link between two memories on both sides — what the
+   * dashboard calls when the user reviews a flagged pair and chooses "keep both".
+   * Leaves both memories intact; touches only their metadata. No-op for ids that
+   * don't exist or weren't linked.
+   */
+  resolveConflict(idA: string, idB: string): Promise<void>;
 
   /** List memories, newest first, optionally scoped to a project. */
   list(opts?: ListOptions): Promise<Memory[]>;
