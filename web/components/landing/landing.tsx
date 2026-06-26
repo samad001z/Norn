@@ -11,7 +11,9 @@ import {
 import {
   ArrowRight,
   Blocks,
+  Check,
   Code2,
+  Copy,
   Eye,
   GitBranch,
   GitCompare,
@@ -682,6 +684,29 @@ function WhatsNew() {
 // Final CTA
 // ---------------------------------------------------------------------------
 
+/** Copy-to-clipboard button with a brief "copied" check. */
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = React.useState(false);
+  return (
+    <button
+      type="button"
+      aria-label={copied ? "Copied" : "Copy command"}
+      onClick={async () => {
+        try {
+          await navigator.clipboard.writeText(text);
+          setCopied(true);
+          setTimeout(() => setCopied(false), 1600);
+        } catch {
+          /* clipboard blocked — no-op */
+        }
+      }}
+      className="shrink-0 rounded p-1 text-fathom outline-none transition-colors hover:text-mist focus-visible:ring-2 focus-visible:ring-candle/40"
+    >
+      {copied ? <Check className="size-4 text-candle" /> : <Copy className="size-4" />}
+    </button>
+  );
+}
+
 function FinalCta() {
   return (
     <section className="relative z-10 mx-auto max-w-3xl px-5 py-28 text-center">
@@ -695,9 +720,10 @@ function FinalCta() {
           exactly what it remembers.
         </p>
 
-        <div className="mx-auto mt-9 flex max-w-md items-center gap-3 rounded-lg border border-silt bg-[#0c1016] px-4 py-3 text-left font-mono text-[0.8rem]">
-          <span className="select-none text-candle">$</span>
-          <code className="overflow-x-auto whitespace-nowrap text-mist">{INSTALL_CMD}</code>
+        <div className="mx-auto mt-9 flex max-w-md items-start gap-3 rounded-lg border border-silt bg-[#0c1016] px-4 py-3 text-left font-mono text-[0.8rem]">
+          <span className="select-none leading-relaxed text-candle">$</span>
+          <code className="min-w-0 flex-1 break-words leading-relaxed text-mist">{INSTALL_CMD}</code>
+          <CopyButton text={INSTALL_CMD} />
         </div>
 
         <div className="mt-7 flex flex-col items-center justify-center gap-3 sm:flex-row">
