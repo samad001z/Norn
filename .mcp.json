@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "norn": {
+      "command": "npx",
+      "args": ["-y", "@samad001z/norn-server"]
+    }
+  }
+}
