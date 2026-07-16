@@ -1,4 +1,6 @@
 import type {
+  AgentEvent,
+  ListEventsOptions,
   ListOptions,
   Memory,
   NewMemory,
@@ -39,6 +41,15 @@ export interface Storage {
 
   /** List memories, newest first, optionally scoped to a project. */
   list(opts?: ListOptions): Promise<Memory[]>;
+
+  /**
+   * Read the append-only events log in id order (oldest first). `afterId` is the
+   * polling cursor for incremental reads; `scope` filters with the same
+   * own-plus-global visibility recall uses. Events are traces, not records the
+   * user owns: writes to the log are best-effort, so its absence of an event is
+   * not proof an action didn't happen.
+   */
+  listEvents(opts?: ListEventsOptions): Promise<AgentEvent[]>;
 
   /**
    * Re-insert a memory from an export, preserving its id and timestamps and

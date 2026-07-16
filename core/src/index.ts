@@ -5,6 +5,9 @@ export type {
   RecallOptions,
   ListOptions,
   RestorableMemory,
+  AgentEvent,
+  EventKind,
+  ListEventsOptions,
 } from "./types.js";
 export { type Embedder, HashEmbedder } from "./embeddings.js";
 export { MiniLMEmbedder, type MiniLMOptions } from "./minilm-embedder.js";

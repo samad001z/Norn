@@ -1,12 +1,14 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import {
   ArrowDownUp,
   Database,
   FolderGit2,
   GitCompare,
   Plus,
+  Radio,
   Search,
   Settings2,
   Trash2,
@@ -244,6 +246,14 @@ export function Dashboard({
               </button>
             );
           })}
+          <Link
+            href="/app/live"
+            className="group flex items-center gap-3 rounded-md px-2.5 py-2 text-[0.85rem] text-fathom outline-none transition-colors hover:bg-silt/30 hover:text-mist focus-visible:ring-2 focus-visible:ring-candle/30"
+          >
+            <span aria-hidden className="h-4 w-px rounded-full bg-transparent" />
+            <Radio className="size-4 text-fathom group-hover:text-mist" />
+            Live
+          </Link>
         </nav>
 
         <button

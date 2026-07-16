@@ -25,6 +25,9 @@ import {
 } from "./ranking.js";
 import { sameStatement } from "./text.js";
 import type {
+  AgentEvent,
+  EventKind,
+  ListEventsOptions,
   ListOptions,
   Memory,
   NewMemory,
@@ -44,6 +47,22 @@ export interface SqliteStorageOptions {
    * `scope` filter to enforce isolation. Defaults to null.
    */
   scope?: string | null;
+  /**
+   * Identifier of the agent whose actions are written to the events log. Normally
+   * seeded here from the environment at construction, then upgraded via
+   * {@link SqliteStorage.setAgentId} once a better identity is known (e.g. the MCP
+   * client's name, which only arrives after `initialize`). Defaults to null; the
+   * server is responsible for never leaving it plainly null in practice.
+   */
+  agentId?: string | null;
+  /**
+   * Model identity recorded alongside {@link agentId} on logged events, so the
+   * feed can group activity by model as well as by agent. Same lifecycle as
+   * agentId: seeded here (callers resolve it from NORN_MODEL), upgradable via
+   * {@link SqliteStorage.setModel}. Defaults to null — unlike agentId there is
+   * no fallback identity to mint, because an unreported model is simply unknown.
+   */
+  model?: string | null;
   /** Clock, injectable for tests. Defaults to the system clock. */
   now?: () => Date;
   /**
@@ -60,6 +79,26 @@ export interface SqliteStorageOptions {
    * here) so the heavy NLI model stays swappable and tests can stub it.
    */
   contradictionScorer?: ContradictionScorer;
+}
+
+/** Event row as stored in SQLite; `detail` is JSON text, columns are aliased. */
+interface EventRow {
+  id: number;
+  ts: string;
+  agentId: string | null;
+  kind: EventKind;
+  memoryId: string | null;
+  scope: string | null;
+  project: string | null;
+  detail: string | null;
+}
+
+/** Cap on content/query text carried in an event's detail bag. */
+const EVENT_PREVIEW_CHARS = 120;
+
+/** First {@link EVENT_PREVIEW_CHARS} of `text` — events describe, never duplicate. */
+function eventPreview(text: string): string {
+  return text.length > EVENT_PREVIEW_CHARS ? `${text.slice(0, EVENT_PREVIEW_CHARS)}…` : text;
 }
 
 /** Row shape as stored in SQLite; `tags` is JSON text, timestamps are aliased. */
@@ -88,6 +127,10 @@ export class SqliteStorage implements Storage {
   private readonly embedder: Embedder;
   private readonly now: () => Date;
   private readonly defaultScope: string | null;
+  /** Mutable: env-seeded at construction, upgradable via {@link setAgentId}. */
+  private agentId: string | null;
+  /** Mutable: env-seeded at construction, upgradable via {@link setModel}. */
+  private model: string | null;
   private readonly detectConflicts: boolean;
   private readonly contradictionScorer: ContradictionScorer | null;
 
@@ -95,6 +138,8 @@ export class SqliteStorage implements Storage {
     this.embedder = opts.embedder;
     this.now = opts.now ?? (() => new Date());
     this.defaultScope = opts.scope ?? null;
+    this.agentId = opts.agentId ?? null;
+    this.model = opts.model ?? null;
     this.detectConflicts = opts.detectConflicts ?? false;
     this.contradictionScorer = opts.contradictionScorer ?? null;
     if (this.detectConflicts && !this.contradictionScorer) {
@@ -142,6 +187,25 @@ export class SqliteStorage implements Storage {
         embedding FLOAT[${this.embedder.dimensions}]
       );`,
     );
+    // Append-only activity log. Separate from `memories` (and, like memories_vec,
+    // derivable-as-history / never edited): a write here must never block or fail a
+    // memory write. The INTEGER AUTOINCREMENT id is a gap-free monotonic cursor that
+    // readers poll with `WHERE id > ?`. No FK to memories — a `forget` event must
+    // outlive the row it names.
+    // TODO: retention — events is unbounded in v1; add pruning (age/count cap) later.
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS events (
+        id        INTEGER PRIMARY KEY AUTOINCREMENT,
+        ts        TEXT NOT NULL,
+        agent_id  TEXT,
+        kind      TEXT NOT NULL,
+        memory_id TEXT,
+        scope     TEXT,
+        project   TEXT,
+        detail    TEXT
+      );
+      CREATE INDEX IF NOT EXISTS idx_events_scope ON events(scope);
+    `);
   }
 
   /**
@@ -174,6 +238,25 @@ export class SqliteStorage implements Storage {
     }
   }
 
+  /**
+   * Update the agent identity stamped on subsequently-logged events. The MCP
+   * client's name only arrives at `initialize`, after this store is constructed,
+   * so the server seeds a fallback id here at construction and calls this to
+   * upgrade it once the real name is known. Affects future events only.
+   */
+  setAgentId(id: string | null): void {
+    this.agentId = id;
+  }
+
+  /**
+   * Update the model identity stamped on subsequently-logged events. Same
+   * mechanism and lifecycle as {@link setAgentId}: seed at construction, upgrade
+   * once a better identity is known. Affects future events only.
+   */
+  setModel(model: string | null): void {
+    this.model = model;
+  }
+
   private static toMemory(row: MemoryRow): Memory {
     return {
       id: row.id,
@@ -190,6 +273,44 @@ export class SqliteStorage implements Storage {
   /** Whether a stored row's scope is visible from `filter` (own + global). */
   private static scopeVisible(rowScope: string | null, filter: string | null): boolean {
     return rowScope === null || rowScope === filter;
+  }
+
+  /**
+   * Append one row to the events log. Deliberately failure-proof: any error
+   * (bad JSON, schema drift, busy db) is logged to stderr and swallowed, because
+   * the memory tables are the source of truth and an event is only a trace of
+   * them. Called both inside write transactions (remember/forget — swallowing
+   * here means a logging failure can never roll the memory write back) and
+   * standalone (recall), so it must never throw.
+   */
+  private recordEvent(e: {
+    kind: EventKind;
+    memoryId?: string | null;
+    scope?: string | null;
+    project?: string | null;
+    detail?: Record<string, unknown> | null;
+  }): void {
+    try {
+      // The model rides in the detail bag (null when unset) rather than its own
+      // column — no schema migration, and pre-model rows read back identically.
+      const detail = { ...(e.detail ?? {}), model: this.model };
+      this.db
+        .prepare(
+          `INSERT INTO events (ts, agent_id, kind, memory_id, scope, project, detail)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        )
+        .run(
+          this.now().toISOString(),
+          this.agentId,
+          e.kind,
+          e.memoryId ?? null,
+          e.scope ?? null,
+          e.project ?? null,
+          JSON.stringify(detail),
+        );
+    } catch (err) {
+      console.error(`[norn] failed to log ${e.kind} event (memory write unaffected):`, err);
+    }
   }
 
   /**
@@ -248,7 +369,7 @@ export class SqliteStorage implements Storage {
       (n) => n.similarity >= DEDUPE_THRESHOLD && sameStatement(content, n.row.content),
     );
     if (dup) {
-      return this.mergeIntoExisting(dup.row, tags);
+      return this.mergeIntoExisting(dup.row, tags, content);
     }
 
     // Not a duplicate. Two-stage conflict detection (opt-in): stage 1 is the cheap
@@ -299,20 +420,66 @@ export class SqliteStorage implements Storage {
       for (const c of conflicts) {
         const next = linkConflicts(parseMetadata(c.metadata), [memory.id]);
         linkBack.run(serializeMetadata(next), c.id);
+        // One finding per flagged pair, mirroring the metadata link it reports.
+        this.recordEvent({
+          kind: "conflict.detected",
+          memoryId: c.id,
+          scope: memory.scope,
+          project: memory.project,
+          detail: {
+            existingId: c.id,
+            incomingPreview: eventPreview(content),
+            reason: "contradiction",
+          },
+        });
       }
+      // In the same transaction so the event is atomic with the memory — but
+      // recordEvent swallows its own failures, so it can only ride along with a
+      // committed write, never abort one.
+      this.recordEvent({
+        kind: "remember",
+        memoryId: memory.id,
+        scope: memory.scope,
+        project: memory.project,
+        detail: { preview: eventPreview(content) },
+      });
     })();
 
     return memory;
   }
 
   /** Union new tags into an existing memory and bump its timestamp. */
-  private mergeIntoExisting(row: MemoryRow, newTags: string[]): Memory {
+  private mergeIntoExisting(row: MemoryRow, newTags: string[], incoming: string): Memory {
     const existing = SqliteStorage.toMemory(row);
     const tags = [...new Set([...existing.tags, ...newTags])];
     const updatedAt = this.now().toISOString();
-    this.db
-      .prepare(`UPDATE memories SET tags = ?, updated_at = ? WHERE id = ?`)
-      .run(JSON.stringify(tags), updatedAt, existing.id);
+    this.db.transaction(() => {
+      this.db
+        .prepare(`UPDATE memories SET tags = ?, updated_at = ? WHERE id = ?`)
+        .run(JSON.stringify(tags), updatedAt, existing.id);
+      // The detection finding, then the action it led to. Reporting only — the
+      // merge above happened exactly as it always has.
+      this.recordEvent({
+        kind: "conflict.detected",
+        memoryId: existing.id,
+        scope: existing.scope,
+        project: existing.project,
+        detail: {
+          existingId: existing.id,
+          incomingPreview: eventPreview(incoming),
+          reason: "near-duplicate",
+        },
+      });
+      // Still a remember() from the agent's point of view; `deduped` tells the
+      // feed it landed on an existing row instead of creating one.
+      this.recordEvent({
+        kind: "remember",
+        memoryId: existing.id,
+        scope: existing.scope,
+        project: existing.project,
+        detail: { preview: eventPreview(existing.content), deduped: true },
+      });
+    })();
     return { ...existing, tags, updatedAt };
   }
 
@@ -367,6 +534,14 @@ export class SqliteStorage implements Storage {
       used += tokens;
     }
     this.stampRecalled(out);
+    // Best-effort like stampRecalled: a read must never fail because its trace
+    // couldn't be written. Zero-result recalls are logged too — the agent asked.
+    this.recordEvent({
+      kind: "recall",
+      scope: filterScope ? (opts.scope ?? null) : this.defaultScope,
+      project: opts.project ?? null,
+      detail: { query: eventPreview(query), results: out.length },
+    });
     return out;
   }
 
@@ -452,9 +627,19 @@ export class SqliteStorage implements Storage {
 
   async forget(id: string): Promise<boolean> {
     const result = this.db.transaction(() => {
+      // Capture the row's scope/project before it's gone: the forget event must
+      // land in the right project's feed, and it outlives the memory it names.
+      const row = this.db
+        .prepare(`SELECT scope, project FROM memories WHERE id = ?`)
+        .get(id) as { scope: string | null; project: string | null } | undefined;
       this.unlinkConflictPeers(id);
       this.db.prepare(`DELETE FROM memories_vec WHERE memory_id = ?`).run(id);
-      return this.db.prepare(`DELETE FROM memories WHERE id = ?`).run(id);
+      const res = this.db.prepare(`DELETE FROM memories WHERE id = ?`).run(id);
+      // Only a real deletion is an action; a miss on an unknown id is not logged.
+      if (res.changes > 0 && row) {
+        this.recordEvent({ kind: "forget", memoryId: id, scope: row.scope, project: row.project });
+      }
+      return res;
     })();
     return result.changes > 0;
   }
@@ -522,6 +707,39 @@ export class SqliteStorage implements Storage {
       )
       .all(...params) as MemoryRow[];
     return rows.map(SqliteStorage.toMemory);
+  }
+
+  /**
+   * Read the events log in id order (oldest first), optionally resuming after a
+   * cursor. Scope filtering goes through the exact same {@link scopeVisible}
+   * predicate recall uses — own scope plus global — never a separately-written
+   * WHERE clause, so the activity feed can't drift from recall's isolation rules
+   * and leak another project's activity. The limit is applied AFTER the scope
+   * filter, so a page is never under-filled by skipped out-of-scope rows.
+   */
+  async listEvents(opts: ListEventsOptions = {}): Promise<AgentEvent[]> {
+    const filterScope = opts.scope !== undefined;
+    const rows = this.db
+      .prepare(
+        `SELECT id, ts, agent_id AS agentId, kind, memory_id AS memoryId, scope, project, detail
+         FROM events WHERE id > ? ORDER BY id`,
+      )
+      .iterate(opts.afterId ?? 0) as IterableIterator<EventRow>;
+
+    const out: AgentEvent[] = [];
+    for (const row of rows) {
+      if (filterScope && !SqliteStorage.scopeVisible(row.scope, opts.scope ?? null)) continue;
+      const detail = row.detail ? (JSON.parse(row.detail) as Record<string, unknown>) : null;
+      out.push({
+        ...row,
+        // Surfaced from the detail bag; rows written before models existed
+        // simply read as null.
+        model: typeof detail?.model === "string" ? detail.model : null,
+        detail,
+      });
+      if (opts.limit !== undefined && out.length >= opts.limit) break;
+    }
+    return out;
   }
 
   async close(): Promise<void> {

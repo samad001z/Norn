@@ -2,6 +2,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
+import { randomBytes } from "node:crypto";
 import { createRequire } from "node:module";
 import {
   MiniLMEmbedder,
@@ -10,7 +11,6 @@ import {
   resolveStore,
   type Memory,
   type RecallResult,
-  type Storage,
 } from "@samad001z/norn-core";
 
 // Resolve the store for the directory the client launched us in: a project-local
@@ -27,10 +27,30 @@ const filterScope = isolate ? scope : undefined;
 const detectConflicts = ["1", "true"].includes(
   (process.env.NORN_DETECT_CONFLICTS ?? "").toLowerCase(),
 );
-const storage: Storage = new SqliteStorage({
+
+// Identity stamped on activity-log events. Resolution: explicit tool arg >
+// NORN_AGENT_ID > a per-process id minted once at startup — stable for this
+// server's lifetime so one session's unattributed events group together, and
+// never plain null.
+const processAgentId = `agent-${randomBytes(3).toString("hex")}`;
+const envAgentId = process.env.NORN_AGENT_ID?.trim() || undefined;
+function resolveAgentId(arg?: string): string {
+  return arg ?? envAgentId ?? processAgentId;
+}
+
+// Model identity stamped alongside the agent id: NORN_MODEL > null. Unlike the
+// agent id there is no minted fallback — an unreported model is unknown, not
+// invented. Constant for the process, so seeding at construction is enough.
+const model = process.env.NORN_MODEL?.trim() || null;
+
+// Concrete SqliteStorage (not the Storage interface): the handlers below call
+// setAgentId(), which is store-level state, not part of the storage contract.
+const storage = new SqliteStorage({
   path: dbPath,
   embedder: new MiniLMEmbedder(),
   scope,
+  agentId: resolveAgentId(),
+  model,
   detectConflicts,
   contradictionScorer: detectConflicts ? new NliContradictionScorer() : undefined,
 });
@@ -51,6 +71,14 @@ const projectArg = z
   .optional()
   .describe("Project this memory belongs to. Omit for a global memory.");
 
+const agentIdArg = z
+  .string()
+  .min(1)
+  .optional()
+  .describe(
+    "Who is acting, for the activity log (e.g. 'claude-code'). Omit to use NORN_AGENT_ID or this server's per-process id.",
+  );
+
 function line(m: Memory): string {
   const scope = m.project ? `[${m.project}]` : "[global]";
   const tags = m.tags.length ? `  #${m.tags.join(" #")}` : "";
@@ -67,9 +95,11 @@ server.registerTool(
       content: z.string().min(1).describe("The fact to remember, in plain language."),
       tags: z.array(z.string().min(1)).optional().describe("Freeform labels for grouping."),
       project: projectArg,
+      agentId: agentIdArg,
     },
   },
-  async ({ content, tags, project }) => {
+  async ({ content, tags, project, agentId }) => {
+    storage.setAgentId(resolveAgentId(agentId));
     const memory = await storage.remember({ content, tags, project: project ?? null });
     return { content: [{ type: "text", text: `Remembered: ${line(memory)}` }] };
   },
@@ -90,9 +120,11 @@ server.registerTool(
         .positive()
         .optional()
         .describe("Trim results to roughly this many tokens (default 1500)."),
+      agentId: agentIdArg,
     },
   },
-  async ({ query, limit, tokenBudget }) => {
+  async ({ query, limit, tokenBudget, agentId }) => {
+    storage.setAgentId(resolveAgentId(agentId));
     const results: RecallResult[] = await storage.recall(query, {
       limit,
       tokenBudget,
@@ -114,9 +146,11 @@ server.registerTool(
       "Permanently forget a memory by its id. Get the id from list or recall first. Use when a memory is wrong, outdated, or no longer wanted.",
     inputSchema: {
       id: z.string().min(1).describe("The memory id to forget."),
+      agentId: agentIdArg,
     },
   },
-  async ({ id }) => {
+  async ({ id, agentId }) => {
+    storage.setAgentId(resolveAgentId(agentId));
     const forgotten = await storage.forget(id);
     return {
       content: [{ type: "text", text: forgotten ? `Forgot ${id}.` : `No memory with id ${id}.` }],

@@ -84,6 +84,81 @@ export interface RecallOptions {
   tokenBudget?: number;
 }
 
+/**
+ * The kinds of agent action recorded in the events log. `list` is deliberately
+ * excluded — a plain browse is noise, not an action worth surfacing in the feed.
+ * Only writes ({@link Storage.remember}, {@link Storage.forget}) and reads that
+ * consume context ({@link Storage.recall}) are logged.
+ *
+ * `conflict.detected` is the one non-verb kind: not an action but a finding,
+ * emitted alongside the `remember` whose write landed on a near-duplicate
+ * (deduped into an existing row) or was flagged as contradicting existing
+ * memories. It only reports what write-time detection already decided — the
+ * dedupe/flagging behavior itself is unchanged. Its detail carries
+ * `{ existingId, incomingPreview, reason: "near-duplicate" | "contradiction" }`.
+ */
+export type EventKind = "remember" | "recall" | "forget" | "conflict.detected";
+
+/**
+ * One recorded agent action, read from the append-only `events` table. Distinct
+ * from a {@link Memory}: an event is history (what happened, by whom, when), never
+ * edited or deduped, and it outlives the memory it references — a `forget` event
+ * remains after its `memoryId` row is gone.
+ */
+export interface AgentEvent {
+  /**
+   * Monotonic, gap-free row id (SQLite AUTOINCREMENT). Doubles as the cursor for
+   * incremental reads: pass the last seen id as {@link ListEventsOptions.afterId}.
+   */
+  id: number;
+  /** ISO 8601 timestamp of when the action happened. */
+  ts: string;
+  /** Identifier of the agent that acted, or null when unknown (see setAgentId). */
+  agentId: string | null;
+  /**
+   * Model the acting agent reported (see setModel), or null when it never did —
+   * the common case, since NORN_MODEL is opt-in. Derived at read time from the
+   * event's detail bag (where writes record it), not its own column, so old rows
+   * and stores need no migration: they simply read as null.
+   */
+  model: string | null;
+  /** Which action this was. */
+  kind: EventKind;
+  /**
+   * The memory this action concerns, or null when it maps to no single row (e.g.
+   * a `recall` that surfaced several). Not a foreign key — the referenced memory
+   * may since have been forgotten.
+   */
+  memoryId: string | null;
+  /** Project root the action ran under (mirrors {@link Memory.scope}), or null. */
+  scope: string | null;
+  /** Freeform project label in play, or null. */
+  project: string | null;
+  /**
+   * Open JSON bag of per-kind extras (query text, result count, content preview,
+   * tags) — same "add signals without a migration" rationale as {@link Memory.metadata}.
+   * Null when there's nothing extra to record.
+   */
+  detail: Record<string, unknown> | null;
+}
+
+/** Options for reading the events log. */
+export interface ListEventsOptions {
+  /**
+   * Return only events with an id strictly greater than this. The polling cursor:
+   * a reader tracks the highest id it has seen and passes it back to fetch the
+   * tail. Omit to read from the beginning.
+   */
+  afterId?: number;
+  /**
+   * Restrict to a scope, with the same own-plus-global semantics as
+   * {@link RecallOptions.scope}. Omit to read across all scopes.
+   */
+  scope?: string | null;
+  /** Maximum number of events to return (newest-bounded by the query). */
+  limit?: number;
+}
+
 /** Options for {@link Storage.list}. */
 export interface ListOptions {
   /** Restrict to a project label. Omit for all; pass null for global-only. */

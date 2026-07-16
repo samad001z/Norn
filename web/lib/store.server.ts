@@ -8,6 +8,7 @@ import {
   parseMetadata,
   resolveStore,
   stalenessScore,
+  type AgentEvent,
   type Memory as CoreMemory,
   type StalenessLevel,
 } from "@samad001z/norn-core";
@@ -95,6 +96,31 @@ export async function addMemory(input: {
 /** "Keep both": clear the possible-conflict link between two memories. */
 export async function resolveConflict(idA: string, idB: string): Promise<void> {
   return getStore().resolveConflict(idA, idB);
+}
+
+/**
+ * Memories still flagged as possibly conflicting, as id → linked ids. Backs
+ * the live view's "needs you" panel: a `conflict.detected` event stays open
+ * while its memory keeps the flag, and resolving in the dashboard clears it.
+ * Never seeds — an empty store has nothing waiting on anyone.
+ */
+export async function listConflictFlags(): Promise<Record<string, string[]>> {
+  const all = await getStore().list();
+  const flagged: Record<string, string[]> = {};
+  for (const m of all) {
+    const links = parseMetadata(m.metadata).possible_conflict_with ?? [];
+    if (links.length > 0) flagged[m.id] = links;
+  }
+  return flagged;
+}
+
+/**
+ * Events after `afterId`, oldest first — the polling read behind the live
+ * activity stream. Like the memory list, the dashboard shows the whole store it
+ * opened, so no scope filter is passed. Never seeds: an empty log stays empty.
+ */
+export async function listEventsSince(afterId: number, limit?: number): Promise<AgentEvent[]> {
+  return getStore().listEvents({ afterId, limit });
 }
 
 /** Persist an early-access signup. Placeholder sink (a real app routes to a CRM). */

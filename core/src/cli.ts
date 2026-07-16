@@ -11,6 +11,7 @@
  * The store is resolved by resolveDbPath(): $NORN_DB_PATH if set, else the
  * nearest project-local .norn/norn.db, else the global ~/.norn/norn.db.
  */
+import { randomBytes } from "node:crypto";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import {
   MiniLMEmbedder,
@@ -80,10 +81,19 @@ async function main(): Promise<void> {
 
   const { dbPath, scope, isolate } = resolveStore();
   const filterScope = isolate ? scope : undefined;
+  // Same resolution as the MCP server: NORN_AGENT_ID (trimmed; empty falls
+  // through) > a minted per-invocation id. CLI events are never unattributed.
+  const agentId =
+    process.env.NORN_AGENT_ID?.trim() || `agent-${randomBytes(3).toString("hex")}`;
+  // Model identity: NORN_MODEL > null. No minted fallback — an unreported
+  // model is unknown, not invented.
+  const model = process.env.NORN_MODEL?.trim() || null;
   const storage = new SqliteStorage({
     path: dbPath,
     embedder: new MiniLMEmbedder(),
     scope,
+    agentId,
+    model,
   });
 
   try {
