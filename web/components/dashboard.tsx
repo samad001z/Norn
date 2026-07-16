@@ -209,7 +209,7 @@ export function Dashboard({
           <NodeMark className="size-5 text-candle drop-shadow-[0_0_10px_rgba(233,184,122,0.4)]" />
           <span className="font-mono text-[0.9rem] font-medium uppercase tracking-[0.26em] text-mist">Norn</span>
           <span className="ml-auto rounded border border-silt px-1.5 py-0.5 font-mono text-[0.6rem] text-fathom">
-            v1.2
+            v1.3
           </span>
         </div>
 
@@ -674,7 +674,7 @@ function ConfigView({ total, projects, stale }: { total: number; projects: numbe
   const rows: Array<[string, React.ReactNode]> = [
     ["Store", "Local SQLite + on-device embeddings"],
     ["Mode", "Local-first · single-tenant"],
-    ["Version", "v1.2"],
+    ["Version", "v1.3"],
     ["License", "MIT"],
     ["Memories", total],
     ["Projects", projects],

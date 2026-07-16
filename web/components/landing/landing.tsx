@@ -22,6 +22,7 @@ import {
   Hourglass,
   Infinity as InfinityIcon,
   MousePointer2,
+  Radio,
   Scale,
   Search,
   SquareTerminal,
@@ -187,7 +188,7 @@ function Header() {
         <nav className="hidden items-center gap-8 font-mono text-[0.78rem] text-fathom md:flex">
           <a href="#features" className="transition-colors hover:text-mist">Features</a>
           <a href="#how" className="transition-colors hover:text-mist">How it works</a>
-          <a href="#whatsnew" className="transition-colors hover:text-mist">v1.2</a>
+          <a href="#live" className="transition-colors hover:text-mist">Norn Live</a>
         </nav>
         <div className="flex items-center gap-3">
           <a
@@ -306,7 +307,7 @@ function Hero() {
         <Reveal className="relative z-10">
           <span className="inline-flex items-center gap-2 rounded-full border border-silt bg-white/[0.02] px-3 py-1 font-mono text-[0.65rem] uppercase tracking-[0.2em] text-fathom">
             <span className="size-1.5 rounded-full bg-candle shadow-[0_0_8px_2px_rgba(233,184,122,0.6)]" />
-            v1.2 · Open Source
+            v1.3 · Open Source
           </span>
 
           <h1 className="mt-6 text-[clamp(2.75rem,6.5vw,4.75rem)] font-semibold leading-[0.98] tracking-[-0.035em] text-mist">
@@ -458,6 +459,11 @@ const FEATURES: Array<{ icon: LucideIcon; title: string; body: string }> = [
     body: "Finds memories by meaning, not keywords.",
   },
   {
+    icon: Radio,
+    title: "Norn Live",
+    body: "A real-time feed of every remember, recall, and forget — who acted, when, and what it touched.",
+  },
+  {
     icon: Hourglass,
     title: "Staleness surfacing",
     body: "Quietly flags memories you haven't touched in a while, so you can prune.",
@@ -500,14 +506,14 @@ function FeaturesSection() {
           Everything it does, and nothing it doesn&apos;t
         </h2>
         <p className="mt-4 max-w-lg text-[0.95rem] leading-relaxed text-fathom">
-          A memory layer that earns trust by being legible. Eight honest capabilities —
+          A memory layer that earns trust by being legible. Nine honest capabilities —
           no magic, no lock-in.
         </p>
       </Reveal>
 
-      <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {FEATURES.map((f, i) => (
-          <Reveal key={f.title} delay={(i % 4) * 0.06} className="h-full">
+          <Reveal key={f.title} delay={(i % 3) * 0.06} className="h-full">
             <FeatureCard {...f} />
           </Reveal>
         ))}
@@ -631,50 +637,110 @@ function HowItWorks() {
 }
 
 // ---------------------------------------------------------------------------
-// What's new in v1.2
+// What's new in v1.3 — Norn Live
 // ---------------------------------------------------------------------------
 
-function WhatsNew() {
-  const items = [
-    {
-      icon: Hourglass,
-      title: "Staleness surfacing",
-      body: "Memories you haven't touched in a while are quietly flagged for review.",
-    },
-    {
-      icon: GitCompare,
-      title: "Possible-conflict detection",
-      body: "When two memories might disagree, Norn shows you both and lets you decide.",
-    },
-  ];
-  return (
-    <section id="whatsnew" className="relative z-10 mx-auto max-w-6xl px-5 py-24">
-      <Reveal className="overflow-hidden rounded-2xl border border-candle/20 bg-[radial-gradient(120%_140%_at_0%_0%,rgba(233,184,122,0.08),transparent_55%)] p-8 sm:p-10">
-        <div className="flex flex-col gap-2">
-          <Eyebrow>What&apos;s new · v1.2</Eyebrow>
-          <h2 className="max-w-xl text-[clamp(1.6rem,3.4vw,2.25rem)] font-semibold tracking-tight text-mist">
-            It surfaces and suggests. You decide.
-          </h2>
-        </div>
+/**
+ * Illustration of the /app/live feed — example rows in the product's real
+ * shape (agent · action · preview), not a screenshot and not live data.
+ */
+const LIVE_ROWS: Array<{
+  agent: string;
+  kind: "remember" | "recall" | "conflict";
+  text: string;
+}> = [
+  { agent: "claude-code", kind: "remember", text: "Deploy to prod from main on Vercel" },
+  { agent: "cursor", kind: "recall", text: "“how do we ship?” → 1 memory" },
+  { agent: "claude-code", kind: "remember", text: "Rotate the signing keys every 90 days" },
+  { agent: "norn", kind: "conflict", text: "two memories may disagree — yours to resolve" },
+];
 
-        <div className="mt-9 grid gap-4 sm:grid-cols-2">
-          {items.map((it, i) => (
-            <Reveal key={it.title} delay={i * 0.08}>
-              <div className="flex h-full gap-4 rounded-xl border border-silt bg-tide/60 p-5">
-                <span className="grid size-9 shrink-0 place-items-center rounded-lg border border-candle/30 bg-well/60 text-candle">
-                  <it.icon className="size-4" />
-                </span>
-                <div>
-                  <h3 className="text-[0.95rem] font-semibold text-mist">{it.title}</h3>
-                  <p className="mt-1.5 text-[0.85rem] leading-relaxed text-fathom">{it.body}</p>
+const KIND_STYLE: Record<(typeof LIVE_ROWS)[number]["kind"], { label: string; chip: string }> = {
+  remember: { label: "remember", chip: "border-candle/40 text-candle" },
+  recall: { label: "recall", chip: "border-silt text-mist/80" },
+  conflict: { label: "needs you", chip: "border-ember/50 text-ember" },
+};
+
+function LiveFeedCard() {
+  return (
+    <div className="overflow-hidden rounded-xl border border-silt bg-[#0c1016] shadow-[0_40px_120px_-40px_rgba(0,0,0,0.9)]">
+      <div className="flex items-center gap-1.5 border-b border-silt/80 px-4 py-3">
+        <span className="size-2.5 rounded-full bg-silt" />
+        <span className="size-2.5 rounded-full bg-silt" />
+        <span className="size-2.5 rounded-full bg-silt" />
+        <span className="ml-2 font-mono text-[0.7rem] text-fathom">norn — /app/live</span>
+        <span className="ml-auto inline-flex items-center gap-1.5 font-mono text-[0.65rem] uppercase tracking-[0.18em] text-candle">
+          <span className="relative flex size-1.5">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-candle/60 motion-reduce:animate-none" />
+            <span className="relative inline-flex size-1.5 rounded-full bg-candle" />
+          </span>
+          live
+        </span>
+      </div>
+      <ul className="divide-y divide-silt/50 p-2 font-mono text-[0.76rem]">
+        {LIVE_ROWS.map((row, i) => {
+          const kind = KIND_STYLE[row.kind];
+          return (
+            <li key={`${row.agent}-${i}`}>
+              <Reveal delay={0.15 + i * 0.14} y={8}>
+                <div className="flex items-baseline gap-3 px-3 py-3">
+                  <span
+                    className={cn(
+                      "shrink-0 rounded border px-1.5 py-0.5 text-[0.62rem] uppercase tracking-[0.14em]",
+                      kind.chip,
+                    )}
+                  >
+                    {kind.label}
+                  </span>
+                  <span className="shrink-0 text-fathom">{row.agent}</span>
+                  <span className="min-w-0 flex-1 truncate text-mist/90">{row.text}</span>
                 </div>
-              </div>
-            </Reveal>
-          ))}
+              </Reveal>
+            </li>
+          );
+        })}
+      </ul>
+      <p className="border-t border-silt/60 px-4 py-2.5 font-mono text-[0.65rem] text-fathom/80">
+        example feed — your real one starts empty and fills as agents work
+      </p>
+    </div>
+  );
+}
+
+function NornLive() {
+  return (
+    <section id="live" className="relative z-10 mx-auto max-w-6xl scroll-mt-20 px-5 py-24">
+      <Reveal className="overflow-hidden rounded-2xl border border-candle/20 bg-[radial-gradient(120%_140%_at_0%_0%,rgba(233,184,122,0.08),transparent_55%)] p-8 sm:p-10">
+        <div className="grid items-center gap-10 lg:grid-cols-[1fr_1fr]">
+          <div>
+            <Eyebrow>What&apos;s new · v1.3</Eyebrow>
+            <h2 className="mt-4 max-w-xl text-[clamp(1.6rem,3.4vw,2.25rem)] font-semibold tracking-tight text-mist">
+              Norn Live — watch your agents{" "}
+              <span className="font-display font-normal italic text-candle">use</span> memory
+            </h2>
+            <p className="mt-4 max-w-lg text-[0.95rem] leading-relaxed text-fathom">
+              Every <span className="text-mist">remember</span>,{" "}
+              <span className="text-mist">recall</span>, and{" "}
+              <span className="text-mist">forget</span> streams into a live feed as it
+              happens — who acted, when, and what it touched. Conflicts that need your
+              call wait in a <span className="text-mist">needs&nbsp;you</span> panel
+              until you decide.
+            </p>
+            <p className="mt-4 max-w-lg text-[0.88rem] leading-relaxed text-fathom">
+              Local like everything else: events live in the same SQLite file as your
+              memories. And it only logs Norn&apos;s own tools — a trace of memory use,
+              never a recorder of your prompts, code, or terminal.
+            </p>
+            <div className="mt-7">
+              <GhostButton href="/app/live">
+                <Radio className="size-4" />
+                Open Norn Live
+              </GhostButton>
+            </div>
+          </div>
+
+          <LiveFeedCard />
         </div>
-        <p className="mt-6 font-mono text-[0.72rem] text-fathom">
-          Norn never auto-deletes or auto-edits. Nothing changes without your say.
-        </p>
       </Reveal>
     </section>
   );
@@ -789,7 +855,7 @@ export function Landing() {
         <WorksWith />
         <FeaturesSection />
         <HowItWorks />
-        <WhatsNew />
+        <NornLive />
         <FinalCta />
       </main>
       <Footer />
