@@ -116,6 +116,20 @@ describe("resolveStore", () => {
     assert.equal(r.isolate, false);
   });
 
+  it("convergence: an MCP server and the dashboard launched from different cwds (no project .norn, no env override) open the SAME global db", () => {
+    // The zero-config case behind "save via the server, see it in the dashboard":
+    // the server runs in the user's project, the dashboard in its own checkout.
+    const serverCwd = path.join(tmp, "some-users-project");
+    mkdirSync(path.join(serverCwd, ".git"), { recursive: true });
+    const webCwd = path.join(tmp, "norn-checkout", "web");
+    mkdirSync(webCwd, { recursive: true });
+
+    const server = resolveStore(serverCwd);
+    const web = resolveStore(webCwd);
+    assert.equal(server.dbPath, web.dbPath, "both sides resolve to one store file");
+    assert.equal(server.dbPath, defaultDbPath(), "and that file is the global store");
+  });
+
   it("global: falls back to the global db, isolates by cwd project root", () => {
     // A .git dir marks the project root even without `norn init`.
     const root = path.join(tmp, "repo");
