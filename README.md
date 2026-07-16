@@ -268,6 +268,9 @@ npx @samad001z/norn-core recall "what is the request rate limit"
   flags memories that might disagree so you choose which to keep — it never
   auto-resolves, edits, or deletes. Off by default; the extra model only downloads
   once you turn it on.
+- **Norn Live: watch your agents use memory.** A live activity feed in the dashboard
+  shows every `remember`, `recall`, and `forget` as it happens, plus conflicts that
+  need your call. See [Norn Live](#norn-live-watch-agents-use-memory).
 - **Lives in your tools over MCP.** Claude Code, Cursor, and any MCP client.
 - **Local-first.** Your context, the embedding model, and the database all stay on your
   machine.
@@ -320,12 +323,45 @@ npm run cli -w @samad001z/norn-core -- export  # write .norn/memory.json to comm
 npm run cli -w @samad001z/norn-core -- import  # rebuild this checkout's store from memory.json
 ```
 
+## Norn Live: watch agents use memory
+
+Open **http://localhost:3000/app/live** (or the **Live** link in the dashboard sidebar)
+to watch agents use your memory in real time. Every `remember`, `recall`, and `forget`
+that goes through Norn is recorded to a local activity log and streams into the feed as
+it happens — who acted, what they did, when, and a short preview of what it touched.
+A **needs you** panel collects possible conflicts (when detection is on) that are still
+waiting for your decision; resolving one in the dashboard clears it here too.
+
+Like everything else in Norn, the log is local: events live in the same SQLite file as
+your memories and never leave your machine. The page streams over server-sent events
+and falls back to polling if the stream drops.
+
+**Naming agents.** Events are attributed via the optional `agentId` tool argument, or
+the `NORN_AGENT_ID` environment variable in your MCP config. Without either, a server
+session gets a generated id like `agent-3f9c21` — activity still groups per session,
+it just isn't labeled. Set `NORN_MODEL` if you also want events tagged with the model;
+Norn never guesses it.
+
+**What it is and isn't:**
+
+- It logs **only Norn's own tools**. It is not a session recorder — your prompts, code,
+  and terminal never touch it. Plain `list` browsing isn't logged either.
+- Event logging is **best-effort by design**: a failed log write never blocks or rolls
+  back a memory write. Treat the feed as a trace, not an audit record.
+- Events need **server v1.3.0 or newer**. Older servers write no events, so the feed
+  stays empty until the `npx` command picks up the new version (it fetches the latest
+  automatically on next launch).
+- The log is currently **unbounded** — there's no retention cap yet; it grows with use.
+  Pruning is on the roadmap.
+
 ## Roadmap
 
 - Swappable embedding backends (Ollama, OpenAI-compatible) behind the existing `Embedder`
   interface.
 - Edit memories in place from the dashboard (adding and forgetting already work).
 - A larger labelled benchmark for conflict detection, to tune the thresholds with more data.
+- Retention for the activity log (age/count caps), so Norn Live's history doesn't grow
+  unbounded.
 - More editor and MCP-client integrations.
 
 ## Contributing
