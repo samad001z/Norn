@@ -31,24 +31,9 @@ export interface UiMemory {
   conflictsWith: string[];
 }
 
-// Demo seed. The store's injectable clock gives each one a realistic age so
-// the dashboard reads naturally on first run.
-const SEED: Array<{ content: string; tags: string[]; project: string | null; hoursAgo: number }> = [
-  { content: "Embeddings sit behind a swappable Embedder interface. The default HashEmbedder is a placeholder, not semantic.", tags: ["architecture", "embeddings"], project: "norn-core", hoursAgo: 2 },
-  { content: "recall blends semantic similarity with recency, then trims results to a token budget.", tags: ["recall", "ranking"], project: "norn-core", hoursAgo: 26 },
-  { content: "Rotate the signing keys every 90 days. The job lives in infra/rotate-keys.", tags: ["security", "ops"], project: "atlas-api", hoursAgo: 74 },
-  { content: "Rate limit is 600 requests per minute per token, bursting to 1000.", tags: ["limits"], project: "atlas-api", hoursAgo: 120 },
-  { content: "Deploy to prod from the main branch on Vercel. Every pull request gets a preview deploy.", tags: ["deploy", "ops"], project: "harbor-web", hoursAgo: 5 },
-  { content: "The team prefers tabs over spaces and a 100 character line width.", tags: ["style"], project: "harbor-web", hoursAgo: 190 },
-  { content: "Name things by what the user controls, not the implementation. Forget a memory, not delete a vector.", tags: ["writing"], project: null, hoursAgo: 50 },
-  { content: "Keep commits small and put the why in the body.", tags: ["workflow"], project: null, hoursAgo: 300 },
-];
-
-// Module-level singletons. Created lazily so nothing opens the database at
+// Module-level singleton. Created lazily so nothing opens the database at
 // build time (the page that uses this is force-dynamic).
 let store: SqliteStorage | null = null;
-const clock = { ms: Date.now() };
-let seedChecked = false;
 
 function getStore(): SqliteStorage {
   if (!store) {
@@ -61,7 +46,6 @@ function getStore(): SqliteStorage {
       path: dbPath,
       embedder: new MiniLMEmbedder(),
       scope,
-      now: () => new Date(clock.ms),
     });
   }
   return store;
@@ -81,25 +65,11 @@ function toUi(m: CoreMemory, now: Date): UiMemory {
   };
 }
 
-async function seedIfEmpty(s: SqliteStorage): Promise<void> {
-  if (seedChecked) return;
-  seedChecked = true;
-  const existing = await s.list({ limit: 1 });
-  if (existing.length > 0) return;
-  for (const item of SEED) {
-    clock.ms = Date.now() - item.hoursAgo * 3600_000;
-    await s.remember({ content: item.content, tags: item.tags, project: item.project });
-  }
-  clock.ms = Date.now();
-}
-
 export async function listMemories(): Promise<UiMemory[]> {
-  const s = getStore();
-  await seedIfEmpty(s);
-  const all = await s.list();
+  const all = await getStore().list();
   // Staleness is read-time: compute every memory's level against one "now" so the
   // whole list is classified consistently for this request.
-  const now = new Date(clock.ms);
+  const now = new Date();
   return all.map((m) => toUi(m, now));
 }
 
@@ -119,7 +89,7 @@ export async function addMemory(input: {
     project: input.project,
     tags: input.tags,
   });
-  return toUi(m, new Date(clock.ms));
+  return toUi(m, new Date());
 }
 
 /** "Keep both": clear the possible-conflict link between two memories. */
